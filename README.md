@@ -1,4 +1,4 @@
-Where2Tattoo
+#Where2Tattoo
 A web platform designed to connect tattoo studios and artists with customers. This app allows customers to discover studios, browse portfolios, and book appointments, while providing studios with a dashboard to manage their artists, bookings, and public profiles.
 
 ✨ Core Features

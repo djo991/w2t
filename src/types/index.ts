@@ -3,6 +3,8 @@ export interface Studio {
   id: string;
   name: string;
   location: string;
+  email: string;
+  phone: string;
   address: string;
   city: string;
   state: string;

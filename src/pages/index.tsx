@@ -1,3 +1,4 @@
+// src/pages/index.tsx
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Star, Calendar, TrendingUp, Award, Users } from "lucide-react";
 import { useState } from "react";
+import { Header } from "@/components/Header"; // <--- Import the smart Header
+import Link from "next/link";
+import { useRouter } from "next/router";
 
 interface Studio {
   id: string;
@@ -19,6 +23,15 @@ interface Studio {
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      router.push(`/studios?search=${encodeURIComponent(searchQuery)}`);
+    } else {
+      router.push('/studios');
+    }
+  };
 
   const featuredStudios: Studio[] = [
     {
@@ -64,30 +77,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
-      <header className="border-b sticky top-0 bg-background/80 backdrop-blur-md z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-[hsl(var(--ink-red))] to-[hsl(var(--ink-blue))] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">W2</span>
-            </div>
-            <span className="text-2xl font-bold tracking-tight">Where<span className="text-[hsl(var(--ink-red))]">2</span>Tattoo</span>
-          </div>
-          
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#studios" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">Studios</a>
-            <a href="#artists" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">Artists</a>
-            <a href="#styles" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">Styles</a>
-            <a href="#about" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">About</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm">Sign In</Button>
-            <Button size="sm" className="bg-[hsl(var(--ink-red))] hover:bg-[hsl(var(--ink-red))]/90">
-              List Your Studio
-            </Button>
-          </div>
-        </div>
-      </header>
+      
+      {/* REPLACED HARDCODED HEADER WITH COMPONENT */}
+      <Header />
 
       <section className="container mx-auto px-4 py-20 md:py-28">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -114,9 +106,14 @@ export default function HomePage() {
                   className="pl-12 h-14 text-lg"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              <Button size="lg" className="h-14 px-8 bg-[hsl(var(--ink-red))] hover:bg-[hsl(var(--ink-red))]/90">
+              <Button 
+                size="lg" 
+                className="h-14 px-8 bg-[hsl(var(--ink-red))] hover:bg-[hsl(var(--ink-red))]/90"
+                onClick={handleSearch}
+              >
                 Search
               </Button>
             </div>
@@ -157,17 +154,21 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-16" id="studios">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold mb-2">Featured Studios</h2>
             <p className="text-muted-foreground">Top-rated studios handpicked for excellence</p>
           </div>
-          <Button variant="outline">View All</Button>
+          <Link href="/studios">
+            <Button variant="outline">View All</Button>
+          </Link>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {featuredStudios.map((studio) => (
+            // Note: Ideally these should come from Supabase too, 
+            // but for the Landing Page, static curated content is often fine.
             <Card key={studio.id} className="overflow-hidden card-hover cursor-pointer group">
               <div className="relative h-64 overflow-hidden">
                 <img 
@@ -208,10 +209,12 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                <Button className="w-full" variant="outline">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Book Appointment
-                </Button>
+                <Link href="/studios">
+                  <Button className="w-full" variant="outline">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Book Appointment
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ))}
@@ -223,14 +226,16 @@ export default function HomePage() {
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {popularStyles.map((style) => (
-            <Card key={style.name} className="card-hover cursor-pointer group">
-              <CardContent className="p-6 text-center">
-                <div className="text-2xl font-bold mb-1 group-hover:text-[hsl(var(--ink-red))] transition-colors">
-                  {style.count}
-                </div>
-                <div className="text-sm text-muted-foreground">{style.name}</div>
-              </CardContent>
-            </Card>
+            <Link href={`/studios?style=${style.name}`} key={style.name}>
+              <Card className="card-hover cursor-pointer group h-full">
+                <CardContent className="p-6 text-center">
+                  <div className="text-2xl font-bold mb-1 group-hover:text-[hsl(var(--ink-red))] transition-colors">
+                    {style.count}
+                  </div>
+                  <div className="text-sm text-muted-foreground">{style.name}</div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       </section>
@@ -253,18 +258,15 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold mb-4">For Clients</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Find Studios</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Browse Artists</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Book Appointment</a></li>
+                <li><Link href="/studios" className="hover:text-foreground transition-colors">Find Studios</Link></li>
+                <li><Link href="/studios" className="hover:text-foreground transition-colors">Browse Artists</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold mb-4">For Studios</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">List Your Studio</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Resources</a></li>
+                <li><Link href="/auth/signup" className="hover:text-foreground transition-colors">List Your Studio</Link></li>
               </ul>
             </div>
 
@@ -273,7 +275,6 @@ export default function HomePage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#" className="hover:text-foreground transition-colors">About Us</a></li>
                 <li><a href="#" className="hover:text-foreground transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Terms</a></li>
               </ul>
             </div>
           </div>

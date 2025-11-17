@@ -3,53 +3,59 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import type { Studio } from "@/types";
 import { StudioCard } from "@/components/StudioCard";
 import { Header } from "@/components/Header";
 import { GetServerSideProps } from "next";
 import { supabase } from "@/lib/supabaseClient";
+import useDebounce from "@/hooks/use-debounce"; // We'll create this hook below
 
-// 1. Define the props type we expect from getServerSideProps
 interface StudiosPageProps {
   studios: Studio[];
 }
 
-// 2. The component now receives 'studios' as a prop
 export default function StudiosPage({ studios }: StudiosPageProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStyle, setSelectedStyle] = useState("all");
-  const [selectedLocation, setSelectedLocation] = useState("all");
-  const [priceRange, setPriceRange] = useState([0, 500]);
+  const router = useRouter();
   const [showFilters, setShowFilters] = useState(false);
 
-  // 3. All the hardcoded 'studios' array data is DELETED!
-  //    It's now provided as a prop.
+  // Initialize local state from URL query params
+  const [searchQuery, setSearchQuery] = useState((router.query.search as string) || "");
+  const [selectedStyle, setSelectedStyle] = useState((router.query.style as string) || "all");
+  const [selectedLocation, setSelectedLocation] = useState((router.query.location as string) || "all");
+  // UseDebounce prevents reloading on every keystroke
+  const debouncedSearch = useDebounce(searchQuery, 500);
 
-  const styles = ["All Styles", "Traditional", "Japanese", "Realism", "Geometric", "Blackwork", "Watercolor", "Fine Line", "Neo-Traditional"];
-  const locations = ["All Locations", "New York", "California", "Texas", "Florida", "Oregon", "Washington"];
-
-  // TODO: We'll wire these up to re-fetch data later.
-  // For now, they just update state.
-  const filteredStudios = studios.filter(studio => {
-    // This is simple client-side filtering for now.
-    // A more advanced solution would re-fetch from Supabase.
-    const matchesQuery = studio.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStyle = selectedStyle === 'all' || studio.styles.map(s => s.toLowerCase().replace(" ", "-")).includes(selectedStyle);
+  // Update URL when filters change
+  const updateFilters = (newFilters: Record<string, string | null>) => {
+    const query = { ...router.query, ...newFilters };
     
-    // Note: The 'location' filter logic needs to be defined.
-    // This is just a placeholder.
-    const matchesLocation = selectedLocation === 'all' || studio.city.toLowerCase().replace(" ", "-") === selectedLocation;
+    // Remove empty/default keys to keep URL clean
+    if (query.search === "") delete query.search;
+    if (query.style === "all") delete query.style;
+    if (query.location === "all") delete query.location;
+    
+    // Remove null values (for clearing)
+    Object.keys(newFilters).forEach(key => {
+       if (newFilters[key] === null) delete query[key];
+    });
 
-    const matchesPrice = studio.priceRange.min >= priceRange[0] && studio.priceRange.min <= priceRange[1];
+    router.push({ pathname: "/studios", query }, undefined, { shallow: false });
+  };
 
-    return matchesQuery && matchesStyle && matchesLocation && matchesPrice;
-  });
+  // Trigger search update when debounced value changes
+  useEffect(() => {
+    if (debouncedSearch !== router.query.search && (debouncedSearch || router.query.search)) {
+      updateFilters({ search: debouncedSearch || null });
+    }
+  }, [debouncedSearch]);
+
+  const styles = ["Traditional", "Japanese", "Realism", "Geometric", "Blackwork", "Watercolor", "Fine Line", "Neo-Traditional"];
+  const locations = ["New York", "California", "Texas", "Florida", "Oregon", "Washington"];
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,13 +80,20 @@ export default function StudiosPage({ studios }: StudiosPageProps) {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Style</label>
-                  <Select value={selectedStyle} onValueChange={setSelectedStyle}>
+                  <Select 
+                    value={selectedStyle} 
+                    onValueChange={(val) => {
+                      setSelectedStyle(val);
+                      updateFilters({ style: val });
+                    }}
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="All Styles" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Styles</SelectItem>
                       {styles.map((style) => (
-                        <SelectItem key={style} value={style.toLowerCase().replace(" ", "-")}>
+                        <SelectItem key={style} value={style}>
                           {style}
                         </SelectItem>
                       ))}
@@ -90,13 +103,20 @@ export default function StudiosPage({ studios }: StudiosPageProps) {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Location</label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <Select 
+                    value={selectedLocation} 
+                    onValueChange={(val) => {
+                      setSelectedLocation(val);
+                      updateFilters({ location: val });
+                    }}
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="All Locations" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
                       {locations.map((location) => (
-                        <SelectItem key={location} value={location.toLowerCase().replace(" ", "-")}>
+                        <SelectItem key={location} value={location}>
                           {location}
                         </SelectItem>
                       ))}
@@ -104,25 +124,16 @@ export default function StudiosPage({ studios }: StudiosPageProps) {
                   </Select>
                 </div>
 
-                <div className="space-y-4">
-                  <label className="text-sm font-medium">Price Range (per hour)</label>
-                  <div className="px-2">
-                    <Slider
-                      value={priceRange}
-                      onValueChange={setPriceRange}
-                      min={0}
-                      max={500}
-                      step={10}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>${priceRange[0]}</span>
-                    <span>${priceRange[1]}+</span>
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedStyle("all");
+                    setSelectedLocation("all");
+                    router.push("/studios");
+                  }}
+                >
                   Reset Filters
                 </Button>
               </CardContent>
@@ -147,28 +158,23 @@ export default function StudiosPage({ studios }: StudiosPageProps) {
             </div>
 
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{filteredStudios.length} studios found</p>
-              <Select defaultValue="rating">
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rating">Highest Rated</SelectItem>
-                  <SelectItem value="reviews">Most Reviews</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground">
+                {studios.length} studios found
+              </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* 4. We map over the filteredStudios prop */ }
-              {filteredStudios.map((studio) => (
-                // The StudioCard component works perfectly because our
-                // data now matches the Studio type it expects.
-                <StudioCard key={studio.id} studio={studio} />
-              ))}
-            </div>
+            {studios.length === 0 ? (
+               <div className="text-center py-20 border rounded-lg bg-muted/10">
+                 <h3 className="text-lg font-semibold">No studios found</h3>
+                 <p className="text-muted-foreground">Try adjusting your filters or search terms.</p>
+               </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6">
+                {studios.map((studio) => (
+                  <StudioCard key={studio.id} studio={studio} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -176,33 +182,51 @@ export default function StudiosPage({ studios }: StudiosPageProps) {
   );
 }
 
-// 5. This function runs on the server for every request
-export const getServerSideProps: GetServerSideProps = async () => {
-  // Fetch only verified studios
-  const { data, error } = await supabase
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { search, style, location } = context.query;
+
+  // Start building the query
+  let query = supabase
     .from("studios")
     .select("*")
     .eq("verified", true);
 
-  if (error) {
-    console.error("Error fetching studios:", error);
-    return { props: { studios: [] } }; // Return empty array on error
+  // Apply Search Filter (matches name or description)
+  if (search) {
+    query = query.ilike('name', `%${search}%`);
   }
 
-  // Map the data to create the 'priceRange' object
+  // Apply Style Filter (checks if array contains value)
+  if (style && style !== 'all') {
+    query = query.contains('styles', [style]);
+  }
+
+  // Apply Location Filter (exact match on city or state for now)
+  if (location && location !== 'all') {
+    // Simple city match for this example. 
+    // In production, you might want a separate 'city' column or smarter search.
+    query = query.or(`city.ilike.%${location}%,state.ilike.%${location}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching studios:", error);
+    return { props: { studios: [] } };
+  }
+
   const studios: Studio[] = data.map((studio) => ({
     ...studio,
+    coverImage: studio.cover_image,
     priceRange: {
-      min: studio.priceMin || 0, // Fallback to 0 if null
-      max: studio.priceMax || 0, // Fallback to 0 if null
+      min: studio.priceMin || 0,
+      max: studio.priceMax || 0,
     },
-    // Ensure arrays are not null (Supabase may return null for empty arrays)
     styles: studio.styles || [],
     images: studio.images || [],
     availability: studio.availability || [],
   }));
 
-  // Pass data to the page component as props
   return {
     props: {
       studios,

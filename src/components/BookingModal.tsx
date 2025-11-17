@@ -1,3 +1,4 @@
+// src/components/BookingModal.tsx
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -6,43 +7,157 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Clock, Calendar as CalendarIcon } from "lucide-react";
 import { useState } from "react";
-import type { Artist } from "@/types";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
+import { format, getDay } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import type { Artist, OpeningHours } from "@/types";
+
+// Zod schema matching your form fields
+const bookingSchema = z.object({
+  artistId: z.string().min(1, "Please select an artist"),
+  time: z.string().min(1, "Please select a time"),
+  date: z.date({ required_error: "Please select a date" }),
+  notes: z.string().optional(),
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Invalid email"),
+  phone: z.string().min(10, "Phone number is required"),
+});
+
+type BookingFormData = z.infer<typeof bookingSchema>;
 
 interface BookingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   artists: Artist[];
   studioName: string;
+  studioId: string;
+  openingHours?: OpeningHours;
 }
 
-export function BookingModal({ open, onOpenChange, artists, studioName }: BookingModalProps) {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedArtist, setSelectedArtist] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+export function BookingModal({ open, onOpenChange, artists, studioName, studioId, openingHours }: BookingModalProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const timeSlots = [
-    "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
-  ];
+  const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<BookingFormData>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      name: user?.user_metadata?.full_name || "",
+      email: user?.email || "",
+    }
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Booking submitted:", {
-      date,
-      selectedArtist,
-      selectedTime,
-      notes,
-      name,
-      email,
-      phone
-    });
-    onOpenChange(false);
+  // Watch date for the calendar component
+  const selectedDate = watch("date");
+
+  // --- Schedule Logic ---
+
+  // Helper to get day name from date (0=sunday, 1=monday...)
+  const getDayName = (date: Date) => {
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    return days[getDay(date)];
+  };
+
+  // Generate Time Slots dynamically based on selected date and opening hours
+  const generateTimeSlots = () => {
+    // Fallback default slots if no date selected or no schedule provided
+    if (!selectedDate || !openingHours) {
+      return ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+    }
+
+    const dayName = getDayName(selectedDate);
+    const daySchedule = openingHours[dayName];
+
+    // If closed on this day, return empty array
+    if (!daySchedule || !daySchedule.isOpen) return [];
+
+    const slots = [];
+    let currentHour = parseInt(daySchedule.open.split(":")[0]);
+    const endHour = parseInt(daySchedule.close.split(":")[0]);
+
+    while (currentHour < endHour) {
+      const hourStr = currentHour.toString().padStart(2, "0") + ":00";
+      slots.push(hourStr);
+      currentHour++;
+    }
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
+
+  // Disable dates where studio is closed
+  const isDateDisabled = (date: Date) => {
+    // Disable past dates
+    if (date < new Date()) return true; 
+    
+    // If we have schedule data, disable days that are marked as closed
+    if (openingHours) {
+      const dayName = getDayName(date);
+      return !openingHours[dayName]?.isOpen;
+    }
+    return false;
+  };
+
+  // --- Form Submission ---
+
+  const onSubmit = async (data: BookingFormData) => {
+    if (!user) {
+      toast({
+        title: "Please sign in",
+        description: "You must be logged in to book an appointment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase.from("bookings").insert({
+        customer_id: user.id,
+        studio_id: studioId,
+        artist_id: data.artistId,
+        date: format(data.date, "yyyy-MM-dd"),
+        time: data.time,
+        status: "pending",
+        notes: data.notes,
+        customer_name: data.name,
+        customer_email: data.email,
+        customer_phone: data.phone,
+        tattoo_description: data.notes || "No description provided",
+        placement: "To be discussed",
+        size: "To be discussed",
+        budget_range: "To be discussed"
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Request Sent!",
+        description: "The studio will review your appointment request shortly.",
+      });
+      
+      reset();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Booking error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to book appointment.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -52,12 +167,13 @@ export function BookingModal({ open, onOpenChange, artists, studioName }: Bookin
           <DialogTitle className="text-2xl">Book Appointment at {studioName}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4">
+            {/* Artist Selection */}
             <div className="space-y-2">
-              <Label htmlFor="artist">Select Artist</Label>
-              <Select value={selectedArtist} onValueChange={setSelectedArtist}>
-                <SelectTrigger>
+              <Label>Select Artist</Label>
+              <Select onValueChange={(value) => setValue("artistId", value)}>
+                <SelectTrigger className={errors.artistId ? "border-red-500" : ""}>
                   <SelectValue placeholder="Choose an artist" />
                 </SelectTrigger>
                 <SelectContent>
@@ -68,84 +184,105 @@ export function BookingModal({ open, onOpenChange, artists, studioName }: Bookin
                   ))}
                 </SelectContent>
               </Select>
+              {errors.artistId && <p className="text-sm text-red-500">{errors.artistId.message}</p>}
             </div>
 
-            <div className="space-y-2">
+            {/* Date Selection (Now using Popover) */}
+            <div className="space-y-2 flex flex-col">
               <Label>Select Date</Label>
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-                disabled={(date) => date < new Date()}
-              />
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full pl-3 text-left font-normal",
+                      !selectedDate && "text-muted-foreground",
+                      errors.date && "border-red-500"
+                    )}
+                  >
+                    {selectedDate ? (
+                      format(selectedDate, "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                {/* ADDED z-[9999] HERE */}
+                <PopoverContent className="w-auto p-0 z-[9999]" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setValue("date", date);
+                        setIsCalendarOpen(false);
+                      }
+                    }}
+                    disabled={isDateDisabled}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              {errors.date && <p className="text-sm text-red-500">{errors.date.message}</p>}
             </div>
 
+            {/* Time Selection */}
             <div className="space-y-2">
-              <Label htmlFor="time">Select Time</Label>
-              <Select value={selectedTime} onValueChange={setSelectedTime}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a time slot" />
+              <Label>Select Time</Label>
+              <Select onValueChange={(value) => setValue("time", value)}>
+                <SelectTrigger className={errors.time ? "border-red-500" : ""}>
+                  <SelectValue placeholder={timeSlots.length > 0 ? "Choose a time slot" : "No slots available"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeSlots.map((time) => (
-                    <SelectItem key={time} value={time}>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        {time}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {timeSlots.length > 0 ? (
+                    timeSlots.map((time) => (
+                      <SelectItem key={time} value={time}>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          {time}
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      Studio closed on this day or no hours set.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
+              {errors.time && <p className="text-sm text-red-500">{errors.time.message}</p>}
             </div>
 
+            {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Design Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Describe your tattoo idea, size, placement, and any reference images you'll bring..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Describe your tattoo idea..."
+                {...register("notes")}
                 rows={4}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Contact Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <Input id="name" {...register("name")} className={errors.name ? "border-red-500" : ""} />
+                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="(555) 123-4567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                />
+                <Input id="phone" type="tel" placeholder="(555) 123-4567" {...register("phone")} className={errors.phone ? "border-red-500" : ""} />
+                {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
               </div>
             </div>
-
+            
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input id="email" type="email" {...register("email")} className={errors.email ? "border-red-500" : ""} />
+              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
             </div>
           </div>
 
@@ -153,8 +290,8 @@ export function BookingModal({ open, onOpenChange, artists, studioName }: Bookin
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="flex-1">
-              Request Booking
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? "Booking..." : "Request Booking"}
             </Button>
           </div>
         </form>

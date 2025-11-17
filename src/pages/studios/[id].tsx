@@ -15,7 +15,6 @@ import { ReviewCard } from "@/components/ReviewCard";
 import { GetServerSideProps } from "next";
 import { supabase } from "@/lib/supabaseClient";
 
-// 1. Define the props we'll get from getServerSideProps
 interface StudioDetailPageProps {
   studio: Studio;
   artists: Artist[];
@@ -23,13 +22,21 @@ interface StudioDetailPageProps {
   portfolioItems: PortfolioItem[];
 }
 
-// 2. The component now receives props, not hardcoded data
 export default function StudioDetailPage({ studio, artists, reviews, portfolioItems }: StudioDetailPageProps) {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
 
-  // 3. All the hardcoded 'studio', 'artists', 'reviews',
-  //    and 'portfolioItems' constants are DELETED.
-  //    They are now supplied as props.
+  // 1. Convert studio images (strings) into PortfolioItem objects
+  const studioPortfolioItems: PortfolioItem[] = (studio.images || []).map((img, idx) => ({
+    id: `studio-${idx}`,
+    image: img,
+    title: "Studio Portfolio",
+    style: "Studio Work",
+    artistId: "studio"
+  }));
+
+  // 2. Combine them with the artist portfolio items passed from props
+  // We put studio items first
+  const allPortfolioItems = [...studioPortfolioItems, ...portfolioItems];
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,14 +44,16 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
       <BookingModal 
         open={isBookingOpen} 
         onOpenChange={setIsBookingOpen} 
-        artists={artists} // Pass the artists prop
-        studioName={studio.name} // Pass the studio prop
+        artists={artists} 
+        studioName={studio.name}
+        studioId={studio.id}
+        openingHours={studio.openingHours}
       />
 
       <div className="relative h-96 overflow-hidden">
         <img 
-          src={studio.coverImage} // Use prop
-          alt={studio.name}      // Use prop
+          src={studio.coverImage} 
+          alt={studio.name}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
@@ -60,7 +69,7 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
                     <h1 className="text-4xl font-bold mb-2">{studio.name}</h1>
                     <div className="flex items-center gap-2 text-muted-foreground mb-4">
                       <MapPin className="w-5 h-5" />
-                      <span>{studio.address}</span>
+                      <span>{studio.address || studio.location}</span>
                     </div>
                   </div>
                   {studio.featured && (
@@ -105,25 +114,29 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
               </TabsList>
 
               <TabsContent value="portfolio" className="mt-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {/* 4. Use the portfolioItems prop */ }
-                  {portfolioItems.map((item) => (
-                    <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer">
-                      <img 
-                        src={item.image} 
-                        alt={item.style}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Badge variant="secondary">{item.style}</Badge>
+                {allPortfolioItems.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                    <p>No portfolio images available yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {allPortfolioItems.map((item) => (
+                      <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer">
+                        <img 
+                          src={item.image} 
+                          alt={item.style}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Badge variant="secondary">{item.style}</Badge>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="artists" className="mt-6 space-y-4">
-                {/* 5. Use the artists prop */ }
                 {artists.map((artist) => (
                   <Card key={artist.id}>
                     <CardContent className="p-6">
@@ -160,7 +173,6 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6 space-y-4">
-                {/* 6. Use the reviews prop */ }
                 {reviews.map((review) => (
                   <ReviewCard key={review.id} review={review} />
                 ))}
@@ -176,17 +188,14 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 text-sm">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      {/* Use studio prop, with a fallback */ }
                       <span>{studio.phone || "Not available"}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      {/* Use studio prop, with a fallback */ }
                       <span>{studio.email || "Not available"}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <Globe className="w-4 h-4 text-muted-foreground" />
-                      {/* TODO: Add a 'website' column to your DB and type */ }
                       <a href="#" className="text-[hsl(var(--ink-red))] hover:underline">www.studiowebsite.com</a>
                     </div>
                   </div>
@@ -194,7 +203,6 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
 
                 <div>
                   <h3 className="font-semibold mb-4">Hours</h3>
-                  {/* You would parse studio.opening_hours (jsonb) here */}
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Monday - Friday</span>
@@ -229,8 +237,7 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
   );
 }
 
-
-// 7. This is the new data-fetching function
+// Update getServerSideProps to map cover_image correctly
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params;
 
@@ -238,8 +245,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
 
-  // This one query fetches the studio, all its artists, 
-  // all its reviews, and all portfolio items for each artist.
   const { data: studioData, error } = await supabase
     .from("studios")
     .select(`
@@ -260,7 +265,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
   
-  // 8. Process the data to match our types
   const artists: Artist[] = studioData.artists.map((artist: any) => ({
     ...artist,
     specialties: artist.specialties || [],
@@ -268,20 +272,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }));
   
   const reviews: Review[] = studioData.reviews || [];
+  
+  // Artist portfolios
+  const artistPortfolioItems: PortfolioItem[] = artists.flatMap((artist: Artist) => artist.portfolio);
 
-  // Create a combined portfolio from all artists
-  const portfolioItems: PortfolioItem[] = artists.flatMap((artist: Artist) => artist.portfolio);
-
-  // Create the final studio object, processing nulls and creating priceRange
   const studio: Studio = {
     ...studioData,
-    artists: artists, // We pass this separately but also good to have on the main object
+    coverImage: studioData.cover_image, // Ensure mapping matches your DB column
+    openingHours: studioData.opening_hours || {},
+    artists: artists,
     priceRange: {
       min: studioData.priceMin || 0,
       max: studioData.priceMax || 0,
     },
     styles: studioData.styles || [],
-    images: studioData.images || [],
+    images: studioData.images || [], // This should be an array of strings
     availability: studioData.availability || [],
   };
 
@@ -290,7 +295,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       studio,
       artists,
       reviews,
-      portfolioItems,
+      portfolioItems: artistPortfolioItems, // Pass artist items, we combine in component
     },
   };
 };

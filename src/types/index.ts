@@ -16,6 +16,7 @@ export interface Studio {
   featured?: boolean;
   verified?: boolean;
   description: string;
+  openingHours?: OpeningHours;
   priceRange: {
     min: number;
     max: number;
@@ -56,6 +57,14 @@ export interface Review {
   comment: string;
   date: string;
   images?: string[];
+}
+
+export interface OpeningHours {
+  [key: string]: {
+    open: string;
+    close: string;
+    isOpen: boolean;
+  };
 }
 
 export interface Appointment {

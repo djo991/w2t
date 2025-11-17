@@ -5,10 +5,20 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "@/lib/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
 
+// Define the shape of our Profile
+type Profile = {
+  id: string;
+  email: string;
+  full_name: string;
+  role: "customer" | "studio_owner";
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: Profile | null; // <--- Added this
   isLoading: boolean;
+  signOut: () => Promise<void>; // <--- Added a helper function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,22 +26,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
+    // Helper to fetch profile
+    const fetchProfile = async (userId: string) => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      setProfile(data);
+    };
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
+        
         setIsLoading(false);
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial check
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      }
       setIsLoading(false);
     });
 
@@ -40,10 +70,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
+  // Need router for sign out redirect
+  const router = require("next/router").useRouter();
+
   const value = {
     user,
     session,
+    profile, // <--- Exposed here
     isLoading,
+    signOut,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

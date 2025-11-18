@@ -252,7 +252,7 @@ export default function SignUpPage() {
                           <FormMessage />
                         </FormItem>
                       )}
-                    />
+                    />  
                     <Button type="submit" className="w-full" size="lg" disabled={studioForm.formState.isSubmitting}>
                       {studioForm.formState.isSubmitting ? "Submitting..." : "List Your Studio"}
                     </Button>

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Search, User, LayoutDashboard, LogOut, Calendar } from "lucide-react";
+import { Menu, Search, LayoutDashboard, LogOut, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,6 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, signOut, isLoading } = useAuth();
 
-  // Helper to get initials
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -31,9 +30,8 @@ export function Header() {
   };
 
   return (
-    <header className="border-b sticky top-0 bg-background/80 backdrop-blur-md z-50">
+    <header className="border-b sticky top-0 bg-background/80 backdrop-blur-md z-[100]">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <div className="w-10 h-10 bg-gradient-to-br from-[hsl(var(--ink-red))] to-[hsl(var(--ink-blue))] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xl">W2</span>
@@ -43,26 +41,22 @@ export function Header() {
           </span>
         </Link>
 
-        {/* Desktop Nav - Dynamic based on Role */}
         <nav className="hidden md:flex items-center gap-6">
           <Link href="/studios" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
             Browse Studios
           </Link>
           
-          {/* Studio Only Links */}
           {profile?.role === "studio_owner" && (
             <>
               <Link href="/dashboard" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
                 Dashboard
               </Link>
-              {/* Update the href to point to the new page */}
                <Link href="/dashboard/studio" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
                 My Studio
               </Link>
             </>
           )}
 
-          {/* Customer Only Links */}
           {profile?.role === "customer" && (
             <Link href="/appointments" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
               My Appointments
@@ -70,9 +64,7 @@ export function Header() {
           )}
         </nav>
 
-        {/* Actions Area */}
         <div className="hidden md:flex items-center gap-3">
-          {/* Search is always useful */}
           <Link href="/studios">
              <Button variant="ghost" size="icon">
                 <Search className="w-5 h-5" />
@@ -82,7 +74,6 @@ export function Header() {
           {isLoading ? (
              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
           ) : user ? (
-            // LOGGED IN STATE
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -92,7 +83,7 @@ export function Header() {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuContent className="w-56 z-[150]" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{profile?.full_name}</p>
@@ -122,7 +113,6 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            // LOGGED OUT STATE
             <>
               <Link href="/auth/signin">
                 <Button variant="ghost">Sign In</Button>
@@ -134,7 +124,6 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon">
@@ -143,7 +132,6 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:w-96">
             <nav className="flex flex-col gap-6 mt-8">
-              {/* Mobile User Info */}
               {user && (
                  <div className="flex items-center gap-3 mb-4 p-4 bg-muted/20 rounded-lg">
                     <Avatar>
@@ -171,6 +159,15 @@ export function Header() {
                   onClick={() => setIsOpen(false)}
                 >
                   Dashboard
+                </Link>
+              )}
+               {profile?.role === "customer" && (
+                <Link 
+                  href="/appointments" 
+                  className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  My Appointments
                 </Link>
               )}
 

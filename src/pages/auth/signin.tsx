@@ -3,8 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Link as NextLink } from "next/link"; // Renamed to avoid conflict if needed
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -20,8 +19,8 @@ import {
 } from "@/components/ui/form";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
+import { Eye, EyeOff } from "lucide-react";
 
-// --- Zod Schema for Validation ---
 const signInSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
@@ -29,6 +28,7 @@ const signInSchema = z.object({
 
 export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   const form = useForm<z.infer<typeof signInSchema>>({
@@ -46,11 +46,9 @@ export default function SignInPage() {
     if (error) {
       setError(error.message);
     } else {
-      // We don't need to fetch the user type here.
-      // The AuthProvider will detect the new session.
-      // We can create a simple protected route or redirect logic
-      // in a wrapper component later.
-      router.push("/");
+      // AuthContext will handle the state update and redirect logic if we want,
+      // but usually we just push to home or dashboard here.
+      router.push("/"); 
     }
   };
 
@@ -70,106 +68,71 @@ export default function SignInPage() {
           </CardHeader>
           <CardContent>
             {error && <p className="text-center text-sm text-destructive mb-4">{error}</p>}
-            <Tabs defaultValue="customer" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="customer">Customer</TabsTrigger>
-                <TabsTrigger value="studio">Studio Owner</TabsTrigger>
-              </TabsList>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="your@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input 
+                            type={showPassword ? "text" : "password"} 
+                            placeholder="••••••••" 
+                            {...field} 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="rounded" />
+                    <span>Remember me</span>
+                  </label>
+                  <a href="#" className="text-[hsl(var(--ink-red))] hover:underline">
+                    Forgot password?
+                  </a>
+                </div>
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
-                  {/* Both tabs will share the same form instance */}
-                  <TabsContent value="customer" className="m-0 space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="your@email.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
+                <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? "Signing In..." : "Sign In"}
+                </Button>
 
-                  <TabsContent value="studio" className="m-0 space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Studio Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="studio@email.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </TabsContent>
-
-                  {/* Common Elements */}
-                  <div className="flex items-center justify-between text-sm">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="rounded" />
-                      <span>Remember me</span>
-                    </label>
-                    <a href="#" className="text-[hsl(var(--ink-red))] hover:underline">
-                      Forgot password?
-                    </a>
-                  </div>
-                  <Button type="submit" className="w-full" size="lg" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? "Signing In..." : "Sign In"}
-                  </Button>
-
-                  <TabsContent value="customer" className="m-0">
-                    <p className="text-center text-sm text-muted-foreground">
-                      Don't have an account?{" "}
-                      <Link href="/auth/signup" className="text-[hsl(var(--ink-red))] hover:underline font-medium">
-                        Sign up
-                      </Link>
-                    </p>
-                  </TabsContent>
-                  <TabsContent value="studio" className="m-0">
-                    <p className="text-center text-sm text-muted-foreground">
-                      New studio?{" "}
-                      <Link href="/auth/signup" className="text-[hsl(var(--ink-red))] hover:underline font-medium">
-                        List your studio
-                      </Link>
-                    </p>
-                  </TabsContent>
-                </form>
-              </Form>
-            </Tabs>
+                <p className="text-center text-sm text-muted-foreground">
+                  Don't have an account?{" "}
+                  <Link href="/auth/signup" className="text-[hsl(var(--ink-red))] hover:underline font-medium">
+                    Sign up
+                  </Link>
+                </p>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>

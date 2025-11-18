@@ -57,7 +57,7 @@ export default function DashboardPage() {
     fetchData();
   }, [user]);
 
-  const updateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled') => {
+  const updateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled' | 'completed') => {
     try {
       const { error } = await supabase
         .from("bookings")
@@ -218,6 +218,7 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
+                              {/* PENDING ACTIONS */}
                               {appointment.status === "pending" && (
                                 <>
                                   <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'confirmed')}>
@@ -227,6 +228,20 @@ export default function DashboardPage() {
                                   <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'cancelled')}>
                                     <XCircle className="w-4 h-4 mr-1 text-red-600" />
                                     Decline
+                                  </Button>
+                                </>
+                              )}
+                              
+                              {/* CONFIRMED ACTIONS */}
+                              {appointment.status === "confirmed" && (
+                                <>
+                                  <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'completed')}>
+                                    <CheckCircle className="w-4 h-4 mr-1 text-blue-600" />
+                                    Complete
+                                  </Button>
+                                  <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'cancelled')}>
+                                    <XCircle className="w-4 h-4 mr-1 text-red-600" />
+                                    Cancel
                                   </Button>
                                 </>
                               )}

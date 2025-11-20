@@ -37,7 +37,7 @@ const handleMessage = async () => {
 
     try {
       // 1. Check if conversation exists (using maybeSingle to avoid errors)
-      const { data: existing, error: fetchError } = await supabase
+      const { data: existing } = await supabase
         .from("conversations")
         .select("id")
         .eq("customer_id", user.id)

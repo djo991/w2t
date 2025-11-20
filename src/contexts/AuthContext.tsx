@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Session, User } from "@supabase/supabase-js";
+import { useRouter } from "next/router";
 
 // Define the shape of our Profile
 type Profile = {
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     // Helper to fetch profile
@@ -75,9 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     router.push("/");
   };
-
-  // Need router for sign out redirect
-  const router = require("next/router").useRouter();
 
   const value = {
     user,

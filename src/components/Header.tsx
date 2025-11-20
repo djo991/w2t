@@ -151,7 +151,7 @@ export function Header() {
               <Menu className="w-5 h-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:w-96">
+          <SheetContent side="right" className="w-full sm:w-96 z-[200]">
             <nav className="flex flex-col gap-6 mt-8">
               {user && (
                  <div className="flex items-center gap-3 mb-4 p-4 bg-muted/20 rounded-lg">
@@ -174,21 +174,43 @@ export function Header() {
               </Link>
 
               {profile?.role === "studio_owner" && (
-                <Link 
-                  href="/dashboard" 
-                  className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Dashboard
-                </Link>
+                <>
+                  <Link 
+                    href="/dashboard" 
+                    className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link 
+                    href="/dashboard/studio" 
+                    className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    My Studio
+                  </Link>
+                </>
               )}
-               {profile?.role === "customer" && (
+
+              {/* CUSTOMER LINKS */}
+              {profile?.role === "customer" && (
                 <Link 
                   href="/appointments" 
                   className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
                   onClick={() => setIsOpen(false)}
                 >
                   My Appointments
+                </Link>
+              )}
+              
+              {/* COMMON LINKS (Messages) */}
+              {user && (
+                <Link 
+                  href="/messages" 
+                  className="text-lg font-medium hover:text-[hsl(var(--ink-red))] transition-colors"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Messages
                 </Link>
               )}
 

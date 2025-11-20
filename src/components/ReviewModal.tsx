@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Star } from "lucide-react";
+import { Star, X } from "lucide-react"; // Added X icon
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
+import { ImageUpload } from "@/components/ImageUpload"; // Import this
 
 interface ReviewModalProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface ReviewModalProps {
 export function ReviewModal({ open, onOpenChange, bookingId, studioId, customerId, onSuccess }: ReviewModalProps) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
+  const [images, setImages] = useState<string[]>([]); // State for images
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -33,6 +35,7 @@ export function ReviewModal({ open, onOpenChange, bookingId, studioId, customerI
         customer_id: customerId,
         rating: rating,
         comment: comment,
+        images: images, // Save the array
       });
 
       if (error) throw error;
@@ -53,13 +56,14 @@ export function ReviewModal({ open, onOpenChange, bookingId, studioId, customerI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Leave a Review</DialogTitle>
-          <DialogDescription>How was your appointment? Your feedback helps others.</DialogDescription>
+          <DialogDescription>How was your appointment?</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Rating Stars (Same as before) */}
           <div className="flex flex-col items-center gap-2">
             <Label>Rating</Label>
             <div className="flex gap-1">
@@ -78,6 +82,7 @@ export function ReviewModal({ open, onOpenChange, bookingId, studioId, customerI
             </div>
           </div>
 
+          {/* Comment Box */}
           <div className="space-y-2">
             <Label>Comment</Label>
             <Textarea 
@@ -86,6 +91,35 @@ export function ReviewModal({ open, onOpenChange, bookingId, studioId, customerI
               onChange={(e) => setComment(e.target.value)}
               rows={4}
             />
+          </div>
+
+          {/* Image Upload Section */}
+          <div className="space-y-2">
+            <Label>Add Photos</Label>
+            <div className="flex flex-wrap gap-4">
+               {/* Display uploaded images */}
+               {images.map((img, idx) => (
+                 <div key={idx} className="relative w-20 h-20 rounded-md overflow-hidden border">
+                    <img src={img} className="w-full h-full object-cover" alt="review" />
+                    <button 
+                      onClick={() => setImages(prev => prev.filter(i => i !== img))}
+                      className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                 </div>
+               ))}
+               
+               {/* Uploader */}
+               <div className="w-20">
+                 <ImageUpload 
+                   bucket="review-images" 
+                   onUpload={(url) => { if(url) setImages(prev => [...prev, url]) }}
+                   label="Add"
+                   className="h-20"
+                 />
+               </div>
+            </div>
           </div>
 
           <Button onClick={handleSubmit} className="w-full" disabled={isSubmitting}>

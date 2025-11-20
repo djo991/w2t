@@ -110,4 +110,15 @@ export interface Message {
   content: string;
   created_at: string;
   is_read: boolean;
+  attachments?: string[];
+}
+
+export interface ContactRequest {
+  id: string;
+  studio_id: string;
+  name: string;
+  email: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
 }

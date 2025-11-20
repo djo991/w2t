@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ImageUploadProps {
   onUpload: (url: string) => void;
-  bucket: "avatars" | "studio-images";
+  // Add the new buckets to the union type
+  bucket: "avatars" | "studio-images" | "review-images" | "chat-attachments";
   currentImage?: string;
   label?: string;
   className?: string;

@@ -15,6 +15,8 @@ import { GetServerSideProps } from "next";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
+import { ContactModal } from "@/components/ContactModal";
+import Link from "next/link";
 
 interface StudioDetailPageProps {
   studio: Studio;
@@ -28,11 +30,12 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
 
   const router = useRouter();
 const { user } = useAuth();
+const [isContactOpen, setIsContactOpen] = useState(false);
 
 const handleMessage = async () => {
     if (!user) {
-      router.push("/auth/signin");
-      return;
+      setIsContactOpen(true);
+    return;
     }
 
     try {
@@ -90,6 +93,12 @@ const handleMessage = async () => {
         studioName={studio.name}
         studioId={studio.id}
         openingHours={studio.openingHours}
+      />
+      <ContactModal 
+        open={isContactOpen}
+        onOpenChange={setIsContactOpen}
+        studioId={studio.id}
+        studioName={studio.name}
       />
 
       <div className="relative h-96 overflow-hidden">
@@ -266,10 +275,18 @@ const handleMessage = async () => {
                   Book Appointment
                 </Button>
 
+                <div className="space-y-2">
                 <Button variant="outline" className="w-full" onClick={handleMessage}>
-              <Mail className="w-4 h-4 mr-2" />
-                  Contact Studio
+                  <Mail className="w-4 h-4 mr-2" />
+                  {user ? "Message Studio" : "Contact Studio"}
                 </Button>
+
+                {!user && (
+                    <p className="text-xs text-center text-muted-foreground">
+                        <Link href="/auth/signin" className="text-[hsl(var(--ink-red))] hover:underline">Log in</Link> to chat directly with the studio.
+                    </p>
+                )}
+            </div>
               </CardContent>
             </Card>
           </div>

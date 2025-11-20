@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Users, Star, TrendingUp, Clock, CheckCircle, XCircle, AlertCircle, RefreshCcw } from "lucide-react";
+import { Calendar, Users, Star, TrendingUp, Clock, CheckCircle, XCircle, AlertCircle, RefreshCcw, Mail } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -313,7 +313,12 @@ export default function DashboardPage() {
                       Manage Artists
                     </Button>
                   </Link>
-
+                    <Link href="/messages?tab=inquiries" className="w-full">
+                    <Button className="w-full justify-start" variant="outline">
+                      <Mail className="w-4 h-4 mr-2" />
+                      View Inquiries
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </div>

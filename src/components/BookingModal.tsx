@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
-import { useState } from "react";
+import { Clock, Calendar as CalendarIcon, Loader2 } from "lucide-react"; // Added Loader2
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -20,7 +20,6 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Artist, OpeningHours } from "@/types";
 
-// Zod schema matching your form fields
 const bookingSchema = z.object({
   artistId: z.string().min(1, "Please select an artist"),
   time: z.string().min(1, "Please select a time"),
@@ -47,6 +46,10 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  
+  // New State for Availability
+  const [takenSlots, setTakenSlots] = useState<string[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -56,20 +59,53 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
     }
   });
 
-  // Watch date for the calendar component
   const selectedDate = watch("date");
+  const selectedArtist = watch("artistId");
 
-  // --- Schedule Logic ---
+  // --- 1. Fetch Taken Slots ---
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!selectedDate || !selectedArtist) {
+        setTakenSlots([]);
+        return;
+      }
 
-  // Helper to get day name from date (0=sunday, 1=monday...)
+      setIsLoadingSlots(true);
+      try {
+        // Format date as YYYY-MM-DD for DB query
+        const dateStr = format(selectedDate, "yyyy-MM-dd");
+
+        // Use RPC to fetch taken slots (bypasses RLS securely)
+        const { data, error } = await supabase
+          .rpc("get_taken_times", {
+            p_artist_id: selectedArtist,
+            p_date: dateStr
+          });
+
+        if (error) throw error;
+
+        // Normalize times (DB might return "14:00:00", we need "14:00")
+        // Extract just the time strings (using the new 'slot' property)
+        const times = (data as any[]).map((row: any) => row.slot.substring(0, 5));
+        setTakenSlots(times);
+      } catch (err) {
+        console.error("Error checking availability", err);
+      } finally {
+        setIsLoadingSlots(false);
+      }
+    };
+
+    fetchAvailability();
+  }, [selectedDate, selectedArtist]);
+
+
+  // --- 2. Generate Available Slots ---
   const getDayName = (date: Date) => {
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     return days[getDay(date)];
   };
 
-  // Generate Time Slots dynamically based on selected date and opening hours
   const generateTimeSlots = () => {
-    // Fallback default slots if no date selected or no schedule provided
     if (!selectedDate || !openingHours) {
       return ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
     }
@@ -77,7 +113,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
     const dayName = getDayName(selectedDate);
     const daySchedule = openingHours[dayName];
 
-    // If closed on this day, return empty array
     if (!daySchedule || !daySchedule.isOpen) return [];
 
     const slots = [];
@@ -86,7 +121,11 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
 
     while (currentHour < endHour) {
       const hourStr = currentHour.toString().padStart(2, "0") + ":00";
-      slots.push(hourStr);
+      
+      // FILTER: Only add if NOT in takenSlots
+      if (!takenSlots.includes(hourStr)) {
+          slots.push(hourStr);
+      }
       currentHour++;
     }
     return slots;
@@ -94,20 +133,14 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
 
   const timeSlots = generateTimeSlots();
 
-  // Disable dates where studio is closed
   const isDateDisabled = (date: Date) => {
-    // Disable past dates
     if (date < new Date()) return true; 
-    
-    // If we have schedule data, disable days that are marked as closed
     if (openingHours) {
       const dayName = getDayName(date);
       return !openingHours[dayName]?.isOpen;
     }
     return false;
   };
-
-  // --- Form Submission ---
 
   const onSubmit = async (data: BookingFormData) => {
     if (!user) {
@@ -169,7 +202,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4">
-            {/* Artist Selection */}
             <div className="space-y-2">
               <Label>Select Artist</Label>
               <Select onValueChange={(value) => setValue("artistId", value)}>
@@ -179,7 +211,7 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
                 <SelectContent>
                   {artists.map((artist) => (
                     <SelectItem key={artist.id} value={artist.id}>
-                      {artist.name} - {artist.specialty}
+                      {artist.name} - {artist.specialties?.[0] || "Artist"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -187,7 +219,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
               {errors.artistId && <p className="text-sm text-red-500">{errors.artistId.message}</p>}
             </div>
 
-            {/* Date Selection (Now using Popover) */}
             <div className="space-y-2 flex flex-col">
               <Label>Select Date</Label>
               <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen} modal={true}>
@@ -208,7 +239,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                {/* ADDED z-[9999] HERE */}
                 <PopoverContent className="w-auto p-0 z-[9999]" align="start">
                   <Calendar
                     mode="single"
@@ -227,12 +257,20 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
               {errors.date && <p className="text-sm text-red-500">{errors.date.message}</p>}
             </div>
 
-            {/* Time Selection */}
             <div className="space-y-2">
-              <Label>Select Time</Label>
-              <Select onValueChange={(value) => setValue("time", value)}>
+              <div className="flex items-center gap-2">
+                  <Label>Select Time</Label>
+                  {isLoadingSlots && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+              </div>
+              <Select onValueChange={(value) => setValue("time", value)} disabled={!selectedDate || !selectedArtist}>
                 <SelectTrigger className={errors.time ? "border-red-500" : ""}>
-                  <SelectValue placeholder={timeSlots.length > 0 ? "Choose a time slot" : "No slots available"} />
+                  <SelectValue placeholder={
+                      !selectedArtist ? "Select artist first" :
+                      !selectedDate ? "Select date first" :
+                      isLoadingSlots ? "Checking availability..." :
+                      timeSlots.length > 0 ? "Choose a time slot" : 
+                      "No slots available"
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {timeSlots.length > 0 ? (
@@ -246,7 +284,7 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
                     ))
                   ) : (
                     <div className="p-2 text-sm text-muted-foreground text-center">
-                      Studio closed on this day or no hours set.
+                      {takenSlots.length > 0 ? "Fully booked for this artist" : "Studio closed"}
                     </div>
                   )}
                 </SelectContent>
@@ -254,7 +292,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
               {errors.time && <p className="text-sm text-red-500">{errors.time.message}</p>}
             </div>
 
-            {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Design Notes</Label>
               <Textarea
@@ -265,7 +302,6 @@ export function BookingModal({ open, onOpenChange, artists, studioName, studioId
               />
             </div>
 
-            {/* Contact Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { useState } from "react";
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/form";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
+import { Eye, EyeOff } from "lucide-react";
 
 // --- Zod Schemas for Validation ---
 const customerSchema = z.object({
@@ -39,6 +39,7 @@ const studioSchema = z.object({
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false); // Toggle state
   const router = useRouter();
 
   const customerForm = useForm<z.infer<typeof customerSchema>>({
@@ -60,7 +61,7 @@ export default function SignUpPage() {
       options: {
         data: {
           full_name: values.fullName,
-          role: "customer", // This data is passed to our SQL trigger
+          role: "customer",
         },
       },
     });
@@ -73,8 +74,6 @@ export default function SignUpPage() {
     }
   };
 
-  const [showPassword, setShowPassword] = useState(false);
-
   const handleStudioSignUp = async (values: z.infer<typeof studioSchema>) => {
     setError(null);
     setSuccess(null);
@@ -83,9 +82,9 @@ export default function SignUpPage() {
       password: values.password,
       options: {
         data: {
-          full_name: values.studioName, // We pass studioName as the full_name
+          full_name: values.studioName,
           role: "studio_owner",
-          // You could add location to user_meta_data too if needed
+          // We can store location in metadata, or just rely on the studio creation flow later
         },
       },
     });
@@ -94,8 +93,6 @@ export default function SignUpPage() {
       setError(error.message);
     } else {
       setSuccess("Check your email for a verification link!");
-      // Here you would also create the initial studio row, linking it to the new user.
-      // We'll add that after. For now, just sign up.
       studioForm.reset();
     }
   };
@@ -117,12 +114,14 @@ export default function SignUpPage() {
           <CardContent>
             {error && <p className="text-center text-sm text-destructive mb-4">{error}</p>}
             {success && <p className="text-center text-sm text-green-600 mb-4">{success}</p>}
+            
             <Tabs defaultValue="customer" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="customer">Customer</TabsTrigger>
                 <TabsTrigger value="studio">Studio Owner</TabsTrigger>
               </TabsList>
 
+              {/* CUSTOMER FORM */}
               <TabsContent value="customer">
                 <Form {...customerForm}>
                   <form onSubmit={customerForm.handleSubmit(handleCustomerSignUp)} className="space-y-4">
@@ -153,7 +152,7 @@ export default function SignUpPage() {
                       )}
                     />
                     <FormField
-                      control={customerForm.control} // or studioForm.control
+                      control={customerForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
@@ -185,6 +184,7 @@ export default function SignUpPage() {
                 </Form>
               </TabsContent>
 
+              {/* STUDIO FORM */}
               <TabsContent value="studio">
                 <Form {...studioForm}>
                   <form onSubmit={studioForm.handleSubmit(handleStudioSignUp)} className="space-y-4">
@@ -228,7 +228,7 @@ export default function SignUpPage() {
                       )}
                     />
                     <FormField
-                      control={customerForm.control} // or studioForm.control
+                      control={studioForm.control}
                       name="password"
                       render={({ field }) => (
                         <FormItem>
@@ -252,7 +252,7 @@ export default function SignUpPage() {
                           <FormMessage />
                         </FormItem>
                       )}
-                    />  
+                    />
                     <Button type="submit" className="w-full" size="lg" disabled={studioForm.formState.isSubmitting}>
                       {studioForm.formState.isSubmitting ? "Submitting..." : "List Your Studio"}
                     </Button>

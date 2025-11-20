@@ -11,6 +11,7 @@ type Profile = {
   email: string;
   full_name: string;
   role: "customer" | "studio_owner";
+  is_admin?: boolean;
 };
 
 interface AuthContextType {

@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/router";
 import Link from "next/link"; // <--- Added Link
 import type { Studio } from "@/types";
+import { ImageUpload } from "@/components/ImageUpload";
 
 export default function MyStudioPage() {
   const { user } = useAuth();
@@ -216,22 +217,16 @@ export default function MyStudioPage() {
                 <CardDescription>Define your look and specializations.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Cover Image */}
-                <div className="space-y-3">
-                    <Label>Cover Image URL</Label>
-                    <div className="flex gap-3">
-                        <Input 
-                            placeholder="https://..." 
-                            value={studio.coverImage || ""}
-                            onChange={e => setStudio(prev => ({ ...prev, coverImage: e.target.value }))}
-                        />
-                    </div>
-                    {studio.coverImage && (
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden border mt-2">
-                            <img src={studio.coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
-                        </div>
-                    )}
-                </div>
+{/* Cover Image */}
+<div className="space-y-3">
+    <Label>Cover Image</Label>
+    <ImageUpload 
+        bucket="studio-images"
+        currentImage={studio.coverImage}
+        onUpload={(url) => setStudio(prev => ({ ...prev, coverImage: url }))}
+        label="Upload Cover"
+    />
+</div>
 
                 {/* Styles */}
                 <div className="space-y-3">
@@ -267,18 +262,21 @@ export default function MyStudioPage() {
                 <CardDescription>Showcase your studio's best work.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                    <Input 
-                        placeholder="Add Image URL..." 
-                        value={newPortfolioUrl}
-                        onChange={e => setNewPortfolioUrl(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addImage()}
-                    />
-                    <Button type="button" variant="secondary" onClick={addImage}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Image
-                    </Button>
-                </div>
+                <div className="flex gap-2 items-end">
+    <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Upload New</Label>
+        <ImageUpload 
+            bucket="studio-images"
+            onUpload={(url) => {
+               // Automatically add to array when upload finishes
+               if (url) {
+                  setStudio(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+               }
+            }}
+            label="Add to Portfolio"
+        />
+    </div>
+</div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     {studio.images?.map((img, idx) => (

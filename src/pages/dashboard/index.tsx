@@ -194,31 +194,58 @@ export default function DashboardPage() {
                         {appointments
                           .filter(a => tabValue === "all" || a.status === tabValue)
                           .map((appointment) => (
-                          <div key={appointment.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-semibold">
-                                  Booking from Customer
+                          <div key={appointment.id} className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                            <div className="flex-1 w-full">
+                              <div className="flex items-center justify-between mb-2">
+                                {/* SHOW CUSTOMER NAME */}
+                                <h4 className="font-semibold text-lg">
+                                  {appointment.customer_name || "Customer"}
                                 </h4>
                                 <Badge variant="outline" className={getStatusColor(appointment.status)}>
                                   {getStatusIcon(appointment.status)}
                                   <span className="ml-1 capitalize">{appointment.status}</span>
                                 </Badge>
                               </div>
-                              <p className="text-sm text-muted-foreground mb-2">{appointment.notes || "No notes provided"}</p>
-                              <div className="flex items-center gap-4 text-sm">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                                  <span>{format(new Date(appointment.date), "PPP")}</span>
+                              
+                              {/* CUSTOMER DETAILS & NOTES */}
+                              <div className="space-y-2 text-sm text-muted-foreground">
+                                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                  {appointment.customer_email && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="opacity-70">Email:</span> 
+                                      <span className="text-foreground">{appointment.customer_email}</span>
+                                    </div>
+                                  )}
+                                  {appointment.customer_phone && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="opacity-70">Phone:</span> 
+                                      <span className="text-foreground">{appointment.customer_phone}</span>
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4 text-muted-foreground" />
-                                  <span>{appointment.time}</span>
+
+                                {appointment.notes && (
+                                  <div className="bg-muted p-2 rounded-md mt-2 text-foreground">
+                                    "{appointment.notes}"
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center gap-4 pt-1">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                                    <span>{format(new Date(appointment.date), "PPP")}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span>{appointment.time}</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                              {/* PENDING ACTIONS */}
+
+                            {/* ACTIONS (Buttons) - Kept same as before */}
+                            <div className="flex gap-2 w-full sm:w-auto sm:self-center justify-end mt-2 sm:mt-0">
+                              {/* ... your existing button logic ... */}
                               {appointment.status === "pending" && (
                                 <>
                                   <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'confirmed')}>
@@ -232,7 +259,6 @@ export default function DashboardPage() {
                                 </>
                               )}
                               
-                              {/* CONFIRMED ACTIONS */}
                               {appointment.status === "confirmed" && (
                                 <>
                                   <Button size="sm" className="flex-1 sm:flex-none" variant="outline" onClick={() => updateBookingStatus(appointment.id, 'completed')}>

@@ -13,6 +13,7 @@ CREATE TABLE public.artists (
   is_featured boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  specialties ARRAY DEFAULT '{}'::text[],
   CONSTRAINT artists_pkey PRIMARY KEY (id),
   CONSTRAINT artists_studio_id_fkey FOREIGN KEY (studio_id) REFERENCES public.studios(id),
   CONSTRAINT artists_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id)
@@ -96,7 +97,7 @@ CREATE TABLE public.studios (
   phone text,
   email text,
   description text,
-  coverImage text,
+  cover_image text,
   rating numeric DEFAULT 0.00,
   reviewCount integer DEFAULT 0,
   priceMin integer,

@@ -16,6 +16,7 @@ import { Header } from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import type { Artist } from "@/types";
+import { ImageUpload } from "@/components/ImageUpload";
 
 export default function ArtistsPage() {
   const { user } = useAuth();
@@ -204,13 +205,14 @@ export default function ArtistsPage() {
                             />
                         </div>
                          <div className="space-y-2">
-                            <Label>Avatar URL</Label>
-                            <Input 
-                                value={formData.avatar} 
-                                onChange={(e) => setFormData({...formData, avatar: e.target.value})} 
-                                placeholder="https://..."
-                            />
-                        </div>
+                        <Label>Avatar</Label>
+                        <ImageUpload 
+                            bucket="avatars"
+                            currentImage={formData.avatar}
+                            onUpload={(url) => setFormData({...formData, avatar: url})}
+                            label="Upload Photo"
+                        />
+                    </div>
                     </div>
                     <div className="space-y-2">
                         <Label>Specialties (comma separated)</Label>

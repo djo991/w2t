@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Search, LayoutDashboard, LogOut, Calendar } from "lucide-react";
+import { Menu, Search, LayoutDashboard, LogOut, Calendar, Shield } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +45,12 @@ export function Header() {
           <Link href="/studios" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
             Browse Studios
           </Link>
+          {/* Common Link for everyone */}
+          {user && (
+             <Link href="/messages" className="text-sm font-medium hover:text-[hsl(var(--ink-red))] transition-colors">
+               Messages
+             </Link>
+          )}
           
           {profile?.role === "studio_owner" && (
             <>
@@ -105,6 +111,21 @@ export function Header() {
                     </Link>
                   </DropdownMenuItem>
                 )}
+                {/* Admin Link */}
+            {profile?.is_admin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Admin
+                </DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link href="/admin">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Vetting Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
                 
                 <DropdownMenuItem onClick={signOut} className="text-red-600 focus:text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />

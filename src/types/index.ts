@@ -17,6 +17,8 @@ export interface Studio {
   verified?: boolean;
   description: string;
   openingHours?: OpeningHours;
+  latitude: number;
+  longitude: number;
   priceRange: {
     min: number;
     max: number;
@@ -77,6 +79,9 @@ export interface Appointment {
   duration: number;
   status: "pending" | "confirmed" | "completed" | "cancelled";
   notes?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
 }
 
 export interface User {
@@ -86,4 +91,23 @@ export interface User {
   type: "customer" | "studio_owner";
   avatar?: string;
   studioId?: string;
+}
+
+export interface Conversation {
+  id: string;
+  customer_id: string;
+  studio_id: string;
+  updated_at: string;
+  // We will join these in the query
+  studios?: { name: string; cover_image: string };
+  profiles?: { full_name: string; avatar_url?: string }; // For the customer info
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
 }

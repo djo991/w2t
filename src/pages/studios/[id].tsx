@@ -14,6 +14,8 @@ import { Header } from "@/components/Header";
 import { ReviewCard } from "@/components/ReviewCard";
 import { GetServerSideProps } from "next";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface StudioDetailPageProps {
   studio: Studio;
@@ -24,6 +26,47 @@ interface StudioDetailPageProps {
 
 export default function StudioDetailPage({ studio, artists, reviews, portfolioItems }: StudioDetailPageProps) {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+
+  const router = useRouter();
+const { user } = useAuth();
+
+const handleMessage = async () => {
+    if (!user) {
+      router.push("/auth/signin");
+      return;
+    }
+
+    try {
+      // 1. Check if conversation exists (using maybeSingle to avoid errors)
+      const { data: existing, error: fetchError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("customer_id", user.id)
+        .eq("studio_id", studio.id)
+        .maybeSingle();
+
+      if (existing) {
+        // FOUND: Redirect with the existing ID
+        router.push(`/messages?chat=${existing.id}`);
+      } else {
+        // NOT FOUND: Create new conversation AND select the ID back
+        const { data: newChat, error: insertError } = await supabase
+          .from("conversations")
+          .insert({ customer_id: user.id, studio_id: studio.id })
+          .select("id") // <--- Crucial: Return the ID of the new row
+          .single();
+
+        if (insertError) throw insertError;
+        
+        // Redirect with the NEW ID
+        if (newChat) {
+           router.push(`/messages?chat=${newChat.id}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+    }
+  };
 
   // 1. Convert studio images (strings) into PortfolioItem objects
   const studioPortfolioItems: PortfolioItem[] = (studio.images || []).map((img, idx) => ({
@@ -224,8 +267,8 @@ export default function StudioDetailPage({ studio, artists, reviews, portfolioIt
                   Book Appointment
                 </Button>
 
-                <Button variant="outline" className="w-full">
-                  <Mail className="w-4 h-4 mr-2" />
+                <Button variant="outline" className="w-full" onClick={handleMessage}>
+              <Mail className="w-4 h-4 mr-2" />
                   Contact Studio
                 </Button>
               </CardContent>
@@ -245,6 +288,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
 
+  // 1. FETCH DATA WITH JOINS
   const { data: studioData, error } = await supabase
     .from("studios")
     .select(`
@@ -254,7 +298,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         portfolio_items (*)
       ),
       reviews (
-        *
+        *,
+        profiles (
+          full_name,
+          avatar_url
+        )
       )
     `)
     .eq("id", id)
@@ -265,20 +313,31 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
   
+  // 2. MAP ARTISTS
   const artists: Artist[] = studioData.artists.map((artist: any) => ({
     ...artist,
     specialties: artist.specialties || [],
-    portfolio: artist.portfolio_items || []
+    portfolio: artist.portfolio_items || [],
+    yearsExperience: artist.years_experience
   }));
   
-  const reviews: Review[] = studioData.reviews || [];
+  // 3. MAP REVIEWS (FIXED)
+  // We extract the name from the joined 'profiles' table
+  const reviews: Review[] = (studioData.reviews || []).map((review: any) => ({
+    ...review,
+    // Ensure we have a string for the name, even if profile is missing
+    userName: review.profiles?.full_name || "Anonymous User",
+    userAvatar: review.profiles?.avatar_url || null,
+    // Map other fields just in case your type expects them
+    author: review.profiles?.full_name || "Anonymous User",
+    date: review.created_at,
+  }));
   
-  // Artist portfolios
   const artistPortfolioItems: PortfolioItem[] = artists.flatMap((artist: Artist) => artist.portfolio);
 
   const studio: Studio = {
     ...studioData,
-    coverImage: studioData.cover_image, // Ensure mapping matches your DB column
+    coverImage: studioData.cover_image, 
     openingHours: studioData.opening_hours || {},
     artists: artists,
     priceRange: {
@@ -286,7 +345,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       max: studioData.priceMax || 0,
     },
     styles: studioData.styles || [],
-    images: studioData.images || [], // This should be an array of strings
+    images: studioData.images || [], 
     availability: studioData.availability || [],
   };
 
@@ -295,7 +354,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       studio,
       artists,
       reviews,
-      portfolioItems: artistPortfolioItems, // Pass artist items, we combine in component
+      portfolioItems: artistPortfolioItems, 
     },
   };
 };

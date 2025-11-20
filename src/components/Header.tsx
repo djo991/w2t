@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Search, LayoutDashboard, LogOut, Calendar, Shield } from "lucide-react";
+import { Menu, Search, LayoutDashboard, LogOut, Shield } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";

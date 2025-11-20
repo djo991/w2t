@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MapPin, Star, DollarSign, Phone, Mail, Globe, Calendar as CalendarIcon, Award } from "lucide-react";
 import { useState } from "react";
-import Link from "next/link";
 import type { Studio, Artist, Review, PortfolioItem } from "@/types";
 import { BookingModal } from "@/components/BookingModal";
 import { Header } from "@/components/Header";

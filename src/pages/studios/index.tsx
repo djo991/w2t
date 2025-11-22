@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, SlidersHorizontal, X, Map as MapIcon, List as ListIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Slider } from "@/components/ui/slider"; // <--- Added
+import { Search, SlidersHorizontal, X, Map as MapIcon, List as ListIcon, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import type { Studio } from "@/types";
 import { StudioCard } from "@/components/StudioCard";
@@ -19,7 +20,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 interface StudiosPageProps {
   studios: Studio[];
   locations: string[];
-  initialLocation: string; // <--- Added this prop
+  initialLocation: string;
+  initialPriceRange: number[]; // <--- Added
 }
 
 const StudioMap = dynamic(() => import("@/components/StudioMap"), { 
@@ -27,42 +29,63 @@ const StudioMap = dynamic(() => import("@/components/StudioMap"), {
   loading: () => <div className="h-[500px] w-full bg-muted animate-pulse rounded-lg flex items-center justify-center">Loading Map...</div>
 });
 
-export default function StudiosPage({ studios, locations = [], initialLocation }: StudiosPageProps) {
+export default function StudiosPage({ studios, locations = [], initialLocation, initialPriceRange }: StudiosPageProps) {
   const router = useRouter();
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Initialize local state from URL query params OR the auto-detected location
   const [searchQuery, setSearchQuery] = useState((router.query.search as string) || "");
   const [selectedStyle, setSelectedStyle] = useState((router.query.style as string) || "all");
-  
-  // Use the prop 'initialLocation' which handles the logic of "URL param vs IP detection"
   const [selectedLocation, setSelectedLocation] = useState(initialLocation);
+  
+  // Price State (Default 0-500)
+  const [priceRange, setPriceRange] = useState(initialPriceRange || [0, 500]);
   
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  const updateFilters = (newFilters: Record<string, string | null>) => {
+  // Monitor Router events
+  useEffect(() => {
+    const handleStart = () => setIsLoading(true);
+    const handleComplete = () => setIsLoading(false);
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
+    }
+  }, [router]);
+
+  const updateFilters = useCallback((newFilters: Record<string, string | number | null>) => {
     const query = { ...router.query, ...newFilters };
     
     if (query.search === "") delete query.search;
     if (query.style === "all") delete query.style;
-    if (query.location === "all") delete query.location;
+    if (query.location === null) delete query.location;
+
+    // Handle Price
+    // We don't delete if 0-500 to allow explicit resets, 
+    // but you could optimize URL by removing defaults if you wanted.
     
     Object.keys(newFilters).forEach(key => {
        if (newFilters[key] === null) delete query[key];
     });
 
-    router.push({ pathname: "/studios", query }, undefined, { shallow: false });
-  };
+    router.push({ pathname: "/studios", query: query as any }, undefined, { shallow: false });
+  }, [router]);
 
-  // Sync state with URL changes (e.g. back button)
+  // Sync state with URL changes
   useEffect(() => {
     if (router.isReady) {
-       if (router.query.location) {
-         setSelectedLocation(router.query.location as string);
-       } else if (initialLocation && initialLocation !== 'all') {
-         // If URL has no location but we auto-detected one server-side, keep UI in sync
-         setSelectedLocation(initialLocation);
+       if (router.query.location) setSelectedLocation(router.query.location as string);
+       else if (initialLocation) setSelectedLocation(initialLocation);
+
+       if (router.query.min_price && router.query.max_price) {
+          setPriceRange([Number(router.query.min_price), Number(router.query.max_price)]);
        }
     }
   }, [router.isReady, router.query.location, initialLocation]);
@@ -71,7 +94,7 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
     if (debouncedSearch !== router.query.search && (debouncedSearch || router.query.search)) {
       updateFilters({ search: debouncedSearch || null });
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, updateFilters, router.query.search]);
 
   const styles = ["Traditional", "Japanese", "Realism", "Geometric", "Blackwork", "Watercolor", "Fine Line", "Neo-Traditional"];
 
@@ -143,6 +166,22 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
                   </Select>
                 </div>
 
+                <div className="space-y-4">
+                  <label className="text-sm font-medium">Hourly Rate: ${priceRange[0]} - ${priceRange[1]}</label>
+                  <Slider
+                    defaultValue={[0, 500]}
+                    value={priceRange}
+                    min={0}
+                    max={500}
+                    step={10}
+                    onValueChange={(val) => setPriceRange(val)}
+                    onValueCommit={(val) => {
+                        // Only update URL when user STOPS dragging
+                        updateFilters({ min_price: val[0], max_price: val[1] });
+                    }}
+                  />
+                </div>
+
                 <Button 
                   variant="outline" 
                   className="w-full"
@@ -150,7 +189,8 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
                     setSearchQuery("");
                     setSelectedStyle("all");
                     setSelectedLocation("all");
-                    router.push("/studios");
+                    setPriceRange([0, 500]);
+                    router.push("/studios?location=all"); 
                   }}
                 >
                   Reset Filters
@@ -160,7 +200,16 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
           </aside>
 
           {/* MAIN CONTENT AREA */}
-          <div className="flex-1">
+          <div className="flex-1 relative min-h-[500px]">
+            {isLoading && (
+                <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-[1px] flex items-start justify-center pt-32 rounded-lg">
+                    <div className="flex items-center gap-2 bg-background border shadow-lg px-6 py-3 rounded-full">
+                        <Loader2 className="w-5 h-5 animate-spin text-[hsl(var(--ink-red))]" />
+                        <span className="text-sm font-medium">Updating results...</span>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-6 flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -213,22 +262,21 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
                  <h3 className="text-lg font-semibold">No studios found</h3>
                  <p className="text-muted-foreground">
                     {selectedLocation !== 'all' 
-                        ? `We couldn't find any studios in ${selectedLocation}. Try resetting filters.` 
-                        : "Try adjusting your filters or search terms."}
+                        ? `We couldn't find any studios in ${selectedLocation} matching your filters.` 
+                        : "Try adjusting your price range or search terms."}
                  </p>
-                 {selectedLocation !== 'all' && (
-                    <Button variant="link" onClick={() => {
+                 <Button variant="link" onClick={() => {
                         setSelectedLocation("all");
-                        updateFilters({ location: "all" });
-                    }}>
-                        View all locations
-                    </Button>
-                 )}
+                        setPriceRange([0, 500]);
+                        router.push("/studios?location=all");
+                 }}>
+                        Clear all filters
+                 </Button>
                </div>
             ) : (
               <>
                 {viewMode === 'list' ? (
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {studios.map((studio) => (
                         <StudioCard key={studio.id} studio={studio} />
                         ))}
@@ -247,34 +295,19 @@ export default function StudiosPage({ studios, locations = [], initialLocation }
 
 export const getServerSideProps: GetServerSideProps = async ({ req, query: params }) => {
   const { search, style } = params;
-  let { location } = params;
+  let { location, min_price, max_price } = params;
 
-  // --- 1. AUTO-DETECT LOCATION (Vercel Headers) ---
-  // If the user hasn't explicitly picked a location (URL is empty), try to use their IP
   let detectedCity: string | null = null;
   
-  if (!location || location === 'all') {
-    // Vercel provides this header automatically
+  if (!location) {
     const cityHeader = req.headers['x-vercel-ip-city'];
-    
     if (cityHeader) {
         detectedCity = Array.isArray(cityHeader) ? cityHeader[0] : cityHeader;
-        // Use decodeURIComponent to handle special characters in city names
-        try {
-            detectedCity = decodeURIComponent(detectedCity);
-        } catch (e) {
-            // Fallback if decoding fails
-        }
-        
-        // Apply filter automatically
-        // Only apply if we didn't explicitly ask for 'all' (user cleared filter)
-        if (!location) {
-            location = detectedCity;
-        }
+        try { detectedCity = decodeURIComponent(detectedCity); } catch(e) {}
+        if (detectedCity) location = detectedCity;
     }
   }
 
-  // 2. Fetch locations safely
   const { data: locationData } = await supabase
     .from("studios")
     .select("city, state")
@@ -284,7 +317,6 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
     ? Array.from(new Set(locationData.map(s => `${s.city}, ${s.state}`))).sort()
     : [];
 
-  // 3. Main Query
   let query = supabase
     .from("studios")
     .select("*,latitude,longitude")
@@ -300,24 +332,30 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
 
   if (location && location !== 'all') {
     const locString = location as string;
-    
     if (locString.includes(',')) {
-      // Matches dropdown format "City, State"
       const [city, state] = locString.split(',').map(s => s.trim());
       if (city) query = query.eq('city', city);
       if (state) query = query.eq('state', state);
     } else {
-      // Matches City-only search (like auto-detected "Niš")
-      // Using fuzzy search to be safe
       query = query.or(`city.ilike."%${locString}%",state.ilike."%${locString}%"`);
     }
+  }
+
+  // PRICE FILTER
+  if (min_price) {
+    query = query.gte('priceMin', min_price);
+  }
+  if (max_price) {
+    query = query.lte('priceMin', max_price); 
+    // Note: We filter based on the studio's *minimum* starting price.
+    // A studio with min_price 150 will NOT show if user selects max 100.
   }
 
   const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching studios:", error);
-    return { props: { studios: [], locations: uniqueLocations, initialLocation: location || 'all' } };
+    return { props: { studios: [], locations: uniqueLocations, initialLocation: location || 'all', initialPriceRange: [0, 500] } };
   }
 
   const studios: Studio[] = data.map((studio) => ({
@@ -338,7 +376,8 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
     props: {
       studios,
       locations: uniqueLocations,
-      initialLocation: location || 'all', // Pass the resolved location to the client
+      initialLocation: location || 'all',
+      initialPriceRange: [Number(min_price) || 0, Number(max_price) || 500]
     },
   };
 };

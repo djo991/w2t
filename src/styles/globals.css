@@ -68,12 +68,18 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground pb-20;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer utilities {
+  @keyframes progress {
+    0% { transform: scaleX(0); }
+    50% { transform: scaleX(0.5); }
+    100% { transform: scaleX(0.9); }
+  }
+
   .text-balance {
     text-wrap: balance;
   }
@@ -89,5 +95,9 @@
   .card-hover:hover {
     transform: translateY(-4px);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .animate-progress {
+    animation: progress 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 }

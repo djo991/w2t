@@ -159,11 +159,11 @@ const handleMessage = async () => {
 
             <Tabs defaultValue="portfolio" className="w-full">
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-                <TabsTrigger value="artists">Artists</TabsTrigger>
-                <TabsTrigger value="pricing">Pricing</TabsTrigger>
-                <TabsTrigger value="reviews">Reviews</TabsTrigger>
-              </TabsList>
+  <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+  <TabsTrigger value="artists">Artists</TabsTrigger>
+  <TabsTrigger value="pricing">Pricing</TabsTrigger>
+  <TabsTrigger value="reviews">Reviews</TabsTrigger>
+</TabsList>
 
               <TabsContent value="portfolio" className="mt-6">
                 {allPortfolioItems.length === 0 ? (

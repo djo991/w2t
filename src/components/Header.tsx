@@ -224,12 +224,14 @@ export function Header() {
                   </Button>
                 ) : (
                   <>
-                    <Link href="/auth/signin" onClick={() => setIsOpen(false)}>
-                      <Button variant="outline" className="w-full">Sign In</Button>
-                    </Link>
-                    <Link href="/auth/signup" onClick={() => setIsOpen(false)}>
-                      <Button className="w-full">Get Started</Button>
-                    </Link>
+                    <>
+              <Button variant="ghost" asChild>
+                <Link href="/auth/signin">Sign In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/auth/signup">Get Started</Link>
+              </Button>
+            </>
                   </>
                 )}
               </div>

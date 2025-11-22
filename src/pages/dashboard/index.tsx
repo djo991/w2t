@@ -197,15 +197,11 @@ export default function DashboardPage() {
                           <div key={appointment.id} className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors">
                             <div className="flex-1 w-full">
                               <div className="flex items-center justify-between mb-2">
-                                {/* SHOW CUSTOMER NAME */}
-                                <h4 className="font-semibold text-lg">
-                                  {appointment.customer_name || "Customer"}
-                                </h4>
-                                <Badge variant="outline" className={getStatusColor(appointment.status)}>
-                                  {getStatusIcon(appointment.status)}
-                                  <span className="ml-1 capitalize">{appointment.status}</span>
-                                </Badge>
-                              </div>
+      <h4 className="font-semibold text-lg">
+        {appointment.customer_name || "Customer"}
+      </h4>
+      {/* REMOVED BADGE FROM HERE */}
+    </div>
                               
                               {/* CUSTOMER DETAILS & NOTES */}
                               <div className="space-y-2 text-sm text-muted-foreground">
@@ -245,6 +241,10 @@ export default function DashboardPage() {
 
                             {/* ACTIONS (Buttons) - Kept same as before */}
                             <div className="flex gap-2 w-full sm:w-auto sm:self-center justify-end mt-2 sm:mt-0">
+                              <Badge variant="outline" className={`${getStatusColor(appointment.status)} whitespace-nowrap`}>
+      {getStatusIcon(appointment.status)}
+      <span className="ml-1 capitalize">{appointment.status}</span>
+    </Badge>
                               {/* ... your existing button logic ... */}
                               {appointment.status === "pending" && (
                                 <>

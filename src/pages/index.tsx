@@ -137,9 +137,10 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
             </h2>
             <p className="text-muted-foreground">Top-rated studios handpicked for excellence</p>
           </div>
-          <Link href={userCity ? `/studios?location=${encodeURIComponent(userCity)}` : "/studios"}>
-            <Button variant="outline">View All</Button>
-          </Link>
+          <Button variant="outline" asChild>
+            <Link href={userCity ? `/studios?location=${encodeURIComponent(userCity)}` : "/studios"}>View All</Link>
+          </Button>
+          
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -190,10 +191,12 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
                             ))}
                         </div>
 
-                        <Button className="w-full" variant="outline">
-                            <Calendar className="w-4 h-4 mr-2" />
-                            Book Appointment
-                        </Button>
+                        <Button className="w-full" variant="outline" asChild>
+                  <Link href="/studios">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Book Appointment
+                  </Link>
+                </Button>
                         </CardContent>
                     </Card>
                     </Link>

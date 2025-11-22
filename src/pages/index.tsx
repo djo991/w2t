@@ -5,13 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Star, Calendar, TrendingUp, Award, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/Header"; 
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { GetServerSideProps } from "next";
 import { supabase } from "@/lib/supabaseClient";
 import type { Studio } from "@/types";
+import { QuizModal } from "@/components/QuizModal";
+import { Sparkles } from "lucide-react"; // Icon for the button
 
 interface HomePageProps {
   userCity: string | null;
@@ -20,6 +22,7 @@ interface HomePageProps {
 
 // Add default value = [] to prevent crash
 export default function HomePage({ userCity, featuredStudios = [] }: HomePageProps) {
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
@@ -44,6 +47,18 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
     { name: "Blackwork", count: 621 },
     { name: "Watercolor", count: 534 }
   ];
+
+  useEffect(() => {
+    // Check local storage
+    const hasTakenQuiz = localStorage.getItem("w2t_quiz_taken");
+    if (!hasTakenQuiz) {
+        const timer = setTimeout(() => {
+            setIsQuizOpen(true);
+            localStorage.setItem("w2t_quiz_taken", "true");
+        }, 3000); // Open after 3 seconds
+        return () => clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
@@ -90,6 +105,16 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
                 Search
               </Button>
             </div>
+
+            <div className="pt-4">
+            <button 
+                onClick={() => setIsQuizOpen(true)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-[hsl(var(--ink-red))] transition-colors"
+            >
+                <Sparkles className="w-4 h-4" />
+                Not sure what you want? Take the Style Quiz
+            </button>
+        </div>
 
             <div className="flex items-center gap-8 pt-4">
               <div className="flex items-center gap-2">
@@ -268,6 +293,11 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
           </div>
         </div>
       </footer>
+      <QuizModal 
+        open={isQuizOpen} 
+        onOpenChange={setIsQuizOpen} 
+        userCity={userCity} // Pass the auto-detected city!
+      />
     </div>
   );
 }

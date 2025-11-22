@@ -127,3 +127,27 @@ export interface ContactRequest {
   created_at: string;
   is_read: boolean;
 }
+
+export interface QuizQuestion {
+  id: string;
+  question_text: string;
+  step_order: number;
+  is_active: boolean;
+  // We will often fetch answers nested
+  quiz_answers?: QuizAnswer[];
+}
+
+export interface QuizAnswer {
+  id: string;
+  question_id: string;
+  answer_text: string;
+  // We might fetch weights nested
+  quiz_weights?: QuizWeight[];
+}
+
+export interface QuizWeight {
+  id: string;
+  answer_id: string;
+  style_tag: string;
+  weight_value: number;
+}

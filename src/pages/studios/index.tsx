@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider"; // <--- Added
+import { Slider } from "@/components/ui/slider";
 import { Search, SlidersHorizontal, X, Map as MapIcon, List as ListIcon, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
@@ -16,12 +16,13 @@ import { supabase } from "@/lib/supabaseClient";
 import useDebounce from "@/hooks/use-debounce";
 import dynamic from "next/dynamic";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ParsedUrlQueryInput } from "querystring"; // Import this for typing
 
 interface StudiosPageProps {
   studios: Studio[];
   locations: string[];
   initialLocation: string;
-  initialPriceRange: number[]; // <--- Added
+  initialPriceRange: number[];
 }
 
 const StudioMap = dynamic(() => import("@/components/StudioMap"), { 
@@ -39,12 +40,10 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
   const [selectedStyle, setSelectedStyle] = useState((router.query.style as string) || "all");
   const [selectedLocation, setSelectedLocation] = useState(initialLocation);
   
-  // Price State (Default 0-500)
   const [priceRange, setPriceRange] = useState(initialPriceRange || [0, 500]);
   
   const debouncedSearch = useDebounce(searchQuery, 500);
 
-  // Monitor Router events
   useEffect(() => {
     const handleStart = () => setIsLoading(true);
     const handleComplete = () => setIsLoading(false);
@@ -67,18 +66,14 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
     if (query.style === "all") delete query.style;
     if (query.location === null) delete query.location;
 
-    // Handle Price
-    // We don't delete if 0-500 to allow explicit resets, 
-    // but you could optimize URL by removing defaults if you wanted.
-    
     Object.keys(newFilters).forEach(key => {
        if (newFilters[key] === null) delete query[key];
     });
 
-    router.push({ pathname: "/studios", query: query as any }, undefined, { shallow: false });
+    // Cast query to unknown first to avoid ESLint 'any' error, or use proper type
+    router.push({ pathname: "/studios", query: query as unknown as ParsedUrlQueryInput }, undefined, { shallow: false });
   }, [router]);
 
-  // Sync state with URL changes
   useEffect(() => {
     if (router.isReady) {
        if (router.query.location) setSelectedLocation(router.query.location as string);
@@ -88,7 +83,8 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
           setPriceRange([Number(router.query.min_price), Number(router.query.max_price)]);
        }
     }
-  }, [router.isReady, router.query.location, initialLocation]);
+  // Fixed: Added missing dependencies
+  }, [router.isReady, router.query.location, initialLocation, router.query.min_price, router.query.max_price]);
 
   useEffect(() => {
     if (debouncedSearch !== router.query.search && (debouncedSearch || router.query.search)) {
@@ -109,7 +105,6 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* FILTERS SIDEBAR */}
           <aside className={`lg:w-80 space-y-6 ${showFilters ? 'block' : 'hidden lg:block'}`}>
             <Card>
               <CardContent className="p-6 space-y-6">
@@ -176,7 +171,6 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
                     step={10}
                     onValueChange={(val) => setPriceRange(val)}
                     onValueCommit={(val) => {
-                        // Only update URL when user STOPS dragging
                         updateFilters({ min_price: val[0], max_price: val[1] });
                     }}
                   />
@@ -199,8 +193,8 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
             </Card>
           </aside>
 
-          {/* MAIN CONTENT AREA */}
           <div className="flex-1 relative min-h-[500px]">
+            
             {isLoading && (
                 <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-[1px] flex items-start justify-center pt-32 rounded-lg">
                     <div className="flex items-center gap-2 bg-background border shadow-lg px-6 py-3 rounded-full">
@@ -226,7 +220,6 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
               </Button>
             </div>
 
-            {/* CONTROLS ROW */}
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
                 {studios.length} studios found {selectedLocation !== 'all' && `in ${selectedLocation}`}
@@ -256,7 +249,6 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
               </div>
             </div>
 
-            {/* CONTENT */}
             {studios.length === 0 ? (
                <div className="text-center py-20 border rounded-lg bg-muted/10">
                  <h3 className="text-lg font-semibold">No studios found</h3>
@@ -294,8 +286,9 @@ export default function StudiosPage({ studios, locations = [], initialLocation, 
 }
 
 export const getServerSideProps: GetServerSideProps = async ({ req, query: params }) => {
-  const { search, style } = params;
-  let { location, min_price, max_price } = params;
+  const { search, style, min_price, max_price } = params;
+  // Fixed: Destructure location separately because it gets reassigned
+  let { location } = params;
 
   let detectedCity: string | null = null;
   
@@ -303,7 +296,8 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
     const cityHeader = req.headers['x-vercel-ip-city'];
     if (cityHeader) {
         detectedCity = Array.isArray(cityHeader) ? cityHeader[0] : cityHeader;
-        try { detectedCity = decodeURIComponent(detectedCity); } catch(e) {}
+        // Fixed: unused variable 'e' -> '_'
+        try { detectedCity = decodeURIComponent(detectedCity); } catch(_) {}
         if (detectedCity) location = detectedCity;
     }
   }
@@ -341,14 +335,11 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
     }
   }
 
-  // PRICE FILTER
   if (min_price) {
     query = query.gte('priceMin', min_price);
   }
   if (max_price) {
     query = query.lte('priceMin', max_price); 
-    // Note: We filter based on the studio's *minimum* starting price.
-    // A studio with min_price 150 will NOT show if user selects max 100.
   }
 
   const { data, error } = await query;

@@ -44,7 +44,8 @@ export default function CreateStudioPage() {
         checkExisting();
       }
     }
-  }, [user, profile, isLoading, router]);
+  // Fixed: Added toast to dependencies
+  }, [user, profile, isLoading, router, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,9 +61,8 @@ export default function CreateStudioPage() {
         city: formData.location.split(",")[0] || formData.location,
         description: formData.description,
         verified: false,
-        // FIX: Flatten the object to match DB columns
         "priceMin": 0, 
-        "priceMax": 100, // Set a default max or 0
+        "priceMax": 100, 
       });
 
       if (error) throw error;
@@ -73,10 +73,13 @@ export default function CreateStudioPage() {
       });
       
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) { // Fixed: Changed 'any' to 'unknown'
+      // Type narrow or cast error
+      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -140,4 +143,4 @@ export default function CreateStudioPage() {
       </div>
     </div>
   );
-}
+} 

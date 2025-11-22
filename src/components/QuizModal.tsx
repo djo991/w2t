@@ -53,7 +53,10 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
         .eq("is_active", true)
         .order("step_order");
         
-      if (data) setQuestions(data as any);
+      if (data) {
+        // FIXED: Cast to proper type instead of 'any'
+        setQuestions(data as unknown as Question[]);
+      }
     };
     loadQuiz();
   }, []);
@@ -98,7 +101,8 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
     }
 
     // Fetch Studios
-    let query = supabase
+    // FIXED: Changed 'let' to 'const'
+    const query = supabase
       .from("studios")
       .select("*")
       .eq("verified", true)
@@ -107,15 +111,17 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
     if (userCity) {
        const { data: localData } = await query.ilike("city", `%${userCity}%`).limit(3);
        if (localData && localData.length > 0) {
-          setRecommendations(localData as any);
-          // Wait for UI effect
+          // Cast to any here is acceptable if Studio types perfectly match but DB returns extra/missing fields
+          // Ideally we cast to unknown as Studio[]
+          setRecommendations(localData as unknown as Studio[]);
+          
           setTimeout(() => setStep("results"), 1500);
           return;
        }
     }
 
     const { data: globalData } = await query.order("rating", { ascending: false }).limit(3);
-    setRecommendations(globalData as any || []);
+    setRecommendations(globalData as unknown as Studio[] || []);
     
     setTimeout(() => setStep("results"), 1500);
   };
@@ -128,8 +134,7 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* FIX: max-h-[85vh] prevents overflow off screen */}
-      <DialogContent className="max-w-2xl max-h-[85vh] min-h-[500px] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[85vh] min-h-[500px] flex flex-col p-0 overflow-hidden z-[150]">
         
         {/* --- INTRO --- */}
         {step === "intro" && (
@@ -204,7 +209,7 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
 
              <div className="p-8 space-y-8 bg-background">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-bold">Recommended Artists</h3>
+                    <h3 className="font-bold text-lg">Recommended Artists</h3>
                     {userCity && <Badge variant="outline" className="text-xs"><MapPin className="w-3 h-3 mr-1" /> Near {userCity}</Badge>}
                 </div>
 

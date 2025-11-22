@@ -8,6 +8,7 @@ export interface Studio {
   address: string;
   city: string;
   state: string;
+  pricingInfo: string;
   rating: number;
   reviewCount: number;
   styles: string[];

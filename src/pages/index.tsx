@@ -6,65 +6,35 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Star, Calendar, TrendingUp, Award, Users } from "lucide-react";
 import { useState } from "react";
-import { Header } from "@/components/Header"; // <--- Import the smart Header
+import { Header } from "@/components/Header"; 
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { GetServerSideProps } from "next";
+import { supabase } from "@/lib/supabaseClient";
+import type { Studio } from "@/types";
 
-interface Studio {
-  id: string;
-  name: string;
-  location: string;
-  rating: number;
-  reviews: number;
-  specialties: string[];
-  image: string;
-  featured: boolean;
+interface HomePageProps {
+  userCity: string | null;
+  featuredStudios: Studio[];
 }
 
-export default function HomePage() {
+// Add default value = [] to prevent crash
+export default function HomePage({ userCity, featuredStudios = [] }: HomePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
+      // Explicit search
       router.push(`/studios?search=${encodeURIComponent(searchQuery)}`);
+    } else if (userCity) {
+      // Smart empty search -> Go to local city
+      router.push(`/studios?location=${encodeURIComponent(userCity)}`);
     } else {
+      // Fallback
       router.push('/studios');
     }
   };
-
-  const featuredStudios: Studio[] = [
-    {
-      id: "1",
-      name: "Ink Masters Studio",
-      location: "Brooklyn, NY",
-      rating: 4.9,
-      reviews: 342,
-      specialties: ["Traditional", "Japanese", "Realism"],
-      image: "https://images.unsplash.com/photo-1598371839696-5c5bb00bdc28?w=800&q=80",
-      featured: true
-    },
-    {
-      id: "2",
-      name: "Sacred Art Tattoo",
-      location: "Austin, TX",
-      rating: 4.8,
-      reviews: 267,
-      specialties: ["Geometric", "Blackwork", "Fine Line"],
-      image: "https://images.unsplash.com/photo-1611501275019-9b5cda994e8d?w=800&q=80",
-      featured: true
-    },
-    {
-      id: "3",
-      name: "Rebel Rose Ink",
-      location: "Portland, OR",
-      rating: 4.9,
-      reviews: 421,
-      specialties: ["Color", "Watercolor", "Illustrative"],
-      image: "https://images.unsplash.com/photo-1590246814883-57c511a6f1f5?w=800&q=80",
-      featured: true
-    }
-  ];
 
   const popularStyles = [
     { name: "Traditional", count: 1234 },
@@ -78,7 +48,6 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       
-      {/* REPLACED HARDCODED HEADER WITH COMPONENT */}
       <Header />
 
       <section className="container mx-auto px-4 py-20 md:py-28">
@@ -86,23 +55,27 @@ export default function HomePage() {
           <div className="space-y-8">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[hsl(var(--ink-red))]/10 border border-[hsl(var(--ink-red))]/20">
               <TrendingUp className="w-4 h-4 text-[hsl(var(--ink-red))]" />
-              <span className="text-sm font-medium">500+ Studios Nationwide</span>
+              <span className="text-sm font-medium">
+                 {userCity ? `Explore Studios in ${userCity}` : "500+ Studios Nationwide"}
+              </span>
             </div>
             
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-none">
               Find Your Perfect
-              <span className="block text-[hsl(var(--ink-red))] mt-2">Tattoo Artist</span>
+              <span className="block text-[hsl(var(--ink-red))] mt-2">
+                 {userCity ? `Artist in ${userCity}` : "Tattoo Artist"}
+              </span>
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-lg">
-              Connect with top-rated tattoo studios, browse artist portfolios, and book your next masterpiece with confidence.
+              Connect with top-rated tattoo studios{userCity ? ` near you in ${userCity}` : ""}, browse artist portfolios, and book your next masterpiece with confidence.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input 
-                  placeholder="Search studios, artists, or styles..." 
+                  placeholder={userCity ? `Search in ${userCity}...` : "Search studios, artists, or styles..."}
                   className="pl-12 h-14 text-lg"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -157,67 +130,75 @@ export default function HomePage() {
       <section className="container mx-auto px-4 py-16" id="studios">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Featured Studios</h2>
+            <h2 className="text-3xl font-bold mb-2">
+                {userCity && featuredStudios.some(s => s.city === userCity) 
+                    ? `Featured in ${userCity}` 
+                    : "Featured Studios"}
+            </h2>
             <p className="text-muted-foreground">Top-rated studios handpicked for excellence</p>
           </div>
-          <Link href="/studios">
+          <Link href={userCity ? `/studios?location=${encodeURIComponent(userCity)}` : "/studios"}>
             <Button variant="outline">View All</Button>
           </Link>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredStudios.map((studio) => (
-            // Note: Ideally these should come from Supabase too, 
-            // but for the Landing Page, static curated content is often fine.
-            <Card key={studio.id} className="overflow-hidden card-hover cursor-pointer group">
-              <div className="relative h-64 overflow-hidden">
-                <img 
-                  src={studio.image} 
-                  alt={studio.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                {studio.featured && (
-                  <Badge className="absolute top-4 right-4 bg-[hsl(var(--accent-gold))] text-black">
-                    Featured
-                  </Badge>
-                )}
-              </div>
-              
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold mb-2 group-hover:text-[hsl(var(--ink-red))] transition-colors">
-                  {studio.name}
-                </h3>
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <MapPin className="w-4 h-4" />
-                  <span>{studio.location}</span>
+            {featuredStudios.length === 0 ? (
+                <div className="col-span-full text-center py-12 text-muted-foreground">
+                    No featured studios found yet.
                 </div>
+            ) : (
+                featuredStudios.map((studio) => (
+                    <Link href={`/studios/${studio.id}`} key={studio.id}>
+                    <Card className="overflow-hidden card-hover cursor-pointer group h-full">
+                        <div className="relative h-64 overflow-hidden">
+                        <img 
+                            src={studio.coverImage} 
+                            alt={studio.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        {studio.featured && (
+                            <Badge className="absolute top-4 right-4 bg-[hsl(var(--accent-gold))] text-black">
+                            Featured
+                            </Badge>
+                        )}
+                        </div>
+                        
+                        <CardContent className="p-6">
+                        <h3 className="text-xl font-bold mb-2 group-hover:text-[hsl(var(--ink-red))] transition-colors">
+                            {studio.name}
+                        </h3>
+                        
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                            <MapPin className="w-4 h-4" />
+                            <span>{studio.location}</span>
+                        </div>
 
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-[hsl(var(--accent-gold))] text-[hsl(var(--accent-gold))]" />
-                    <span className="font-semibold">{studio.rating}</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground">({studio.reviews} reviews)</span>
-                </div>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 fill-[hsl(var(--accent-gold))] text-[hsl(var(--accent-gold))]" />
+                            <span className="font-semibold">{studio.rating || "New"}</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">({studio.reviewCount} reviews)</span>
+                        </div>
 
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {studio.specialties.map((specialty) => (
-                    <Badge key={specialty} variant="secondary" className="text-xs">
-                      {specialty}
-                    </Badge>
-                  ))}
-                </div>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                            {studio.styles?.slice(0, 3).map((style) => (
+                            <Badge key={style} variant="secondary" className="text-xs">
+                                {style}
+                            </Badge>
+                            ))}
+                        </div>
 
-                <Link href="/studios">
-                  <Button className="w-full" variant="outline">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Book Appointment
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+                        <Button className="w-full" variant="outline">
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Book Appointment
+                        </Button>
+                        </CardContent>
+                    </Card>
+                    </Link>
+                ))
+            )}
         </div>
       </section>
 
@@ -287,3 +268,67 @@ export default function HomePage() {
     </div>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async ({ req }) => {
+  let userCity = null;
+  
+  // 1. Get City from Headers
+  const cityHeader = req.headers['x-vercel-ip-city'];
+  if (cityHeader) {
+    try {
+       userCity = decodeURIComponent(Array.isArray(cityHeader) ? cityHeader[0] : cityHeader);
+    } catch(e) {}
+  }
+
+  // 2. Fetch Featured Studios
+  // Logic: Try to find featured studios in the user's city first.
+  // If fewer than 3, fill the rest with global featured studios.
+  
+  let featuredStudios = [];
+
+  if (userCity) {
+    const { data: localData } = await supabase
+        .from("studios")
+        .select("*")
+        .eq("verified", true)
+        .eq("featured", true)
+        .ilike("city", `%${userCity}%`) // Loose match for city name
+        .limit(3);
+    
+    if (localData) featuredStudios = [...localData];
+  }
+
+  // If we don't have enough local ones, fetch global ones
+  if (featuredStudios.length < 3) {
+     const { data: globalData } = await supabase
+        .from("studios")
+        .select("*")
+        .eq("verified", true)
+        .eq("featured", true)
+        .limit(3);
+        
+     if (globalData) {
+        // Merge and deduplicate by ID
+        const existingIds = new Set(featuredStudios.map(s => s.id));
+        const newOnes = globalData.filter(s => !existingIds.has(s.id));
+        featuredStudios = [...featuredStudios, ...newOnes].slice(0, 3);
+     }
+  }
+
+  // Map for Props
+  const mappedStudios: Studio[] = featuredStudios.map((s: any) => ({
+     ...s,
+     coverImage: s.cover_image,
+     priceRange: { min: s.priceMin || 0, max: s.priceMax || 0 },
+     styles: s.styles || [],
+     images: s.images || [],
+     availability: s.availability || []
+  }));
+
+  return {
+    props: {
+      userCity,
+      featuredStudios: mappedStudios
+    }
+  };
+};

@@ -46,6 +46,7 @@ export default function MyStudioPage() {
         setStudio({
             ...data,
             coverImage: data.cover_image, // Map snake_case to camelCase
+            pricingInfo: data.pricing_info,
             styles: data.styles || [],
             images: data.images || [],
         });
@@ -69,7 +70,8 @@ export default function MyStudioPage() {
         name: studio.name,
         description: studio.description,
         location: studio.location,
-        cover_image: studio.coverImage, 
+        cover_image: studio.coverImage,
+        pricing_info: studio.pricingInfo, 
         styles: studio.styles || [],
         images: studio.images || [],
         phone: studio.phone,
@@ -209,7 +211,25 @@ export default function MyStudioPage() {
                 </div>
               </CardContent>
             </Card>
-
+            {/* Pricing Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Pricing Information</CardTitle>
+            <CardDescription>Explain your rates, deposits, and minimums.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+                <Label>Detailed Pricing</Label>
+                <Textarea 
+                    rows={6}
+                    placeholder="e.g. Our hourly rate is $150. Minimum shop charge is $100. We require a non-refundable deposit of $50 for all appointments..."
+                    value={studio.pricingInfo || "No additional pricing info available."} 
+                    onChange={e => setStudio(prev => ({ ...prev, pricingInfo: e.target.value }))} 
+                />
+                <p className="text-xs text-muted-foreground">This text will be displayed on your public profile exactly as written here.</p>
+            </div>
+          </CardContent>
+        </Card>      
             {/* Branding & Styles */}
             <Card>
               <CardHeader>

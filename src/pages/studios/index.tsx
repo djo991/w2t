@@ -19,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 interface StudiosPageProps {
   studios: Studio[];
   locations: string[];
+  initialLocation: string; // <--- Added this prop
 }
 
 const StudioMap = dynamic(() => import("@/components/StudioMap"), { 
@@ -26,15 +27,17 @@ const StudioMap = dynamic(() => import("@/components/StudioMap"), {
   loading: () => <div className="h-[500px] w-full bg-muted animate-pulse rounded-lg flex items-center justify-center">Loading Map...</div>
 });
 
-export default function StudiosPage({ studios, locations = [] }: StudiosPageProps) {
+export default function StudiosPage({ studios, locations = [], initialLocation }: StudiosPageProps) {
   const router = useRouter();
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
-  // Initialize local state from URL query params
+  // Initialize local state from URL query params OR the auto-detected location
   const [searchQuery, setSearchQuery] = useState((router.query.search as string) || "");
   const [selectedStyle, setSelectedStyle] = useState((router.query.style as string) || "all");
-  const [selectedLocation, setSelectedLocation] = useState((router.query.location as string) || "all");
+  
+  // Use the prop 'initialLocation' which handles the logic of "URL param vs IP detection"
+  const [selectedLocation, setSelectedLocation] = useState(initialLocation);
   
   const debouncedSearch = useDebounce(searchQuery, 500);
 
@@ -51,6 +54,18 @@ export default function StudiosPage({ studios, locations = [] }: StudiosPageProp
 
     router.push({ pathname: "/studios", query }, undefined, { shallow: false });
   };
+
+  // Sync state with URL changes (e.g. back button)
+  useEffect(() => {
+    if (router.isReady) {
+       if (router.query.location) {
+         setSelectedLocation(router.query.location as string);
+       } else if (initialLocation && initialLocation !== 'all') {
+         // If URL has no location but we auto-detected one server-side, keep UI in sync
+         setSelectedLocation(initialLocation);
+       }
+    }
+  }, [router.isReady, router.query.location, initialLocation]);
 
   useEffect(() => {
     if (debouncedSearch !== router.query.search && (debouncedSearch || router.query.search)) {
@@ -162,10 +177,10 @@ export default function StudiosPage({ studios, locations = [] }: StudiosPageProp
               </Button>
             </div>
 
-            {/* CONTROLS ROW: Count, Toggle, Sort */}
+            {/* CONTROLS ROW */}
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {studios.length} studios found
+                {studios.length} studios found {selectedLocation !== 'all' && `in ${selectedLocation}`}
               </p>
 
               <div className="flex items-center gap-4">
@@ -178,7 +193,6 @@ export default function StudiosPage({ studios, locations = [] }: StudiosPageProp
                     </ToggleGroupItem>
                   </ToggleGroup>
 
-                  {/* Sort Dropdown (Only visible in List view) */}
                   {viewMode === 'list' && (
                       <Select defaultValue="rating">
                         <SelectTrigger className="w-[180px]">
@@ -193,11 +207,23 @@ export default function StudiosPage({ studios, locations = [] }: StudiosPageProp
               </div>
             </div>
 
-            {/* CONTENT GRID / MAP */}
+            {/* CONTENT */}
             {studios.length === 0 ? (
                <div className="text-center py-20 border rounded-lg bg-muted/10">
                  <h3 className="text-lg font-semibold">No studios found</h3>
-                 <p className="text-muted-foreground">Try adjusting your filters or search terms.</p>
+                 <p className="text-muted-foreground">
+                    {selectedLocation !== 'all' 
+                        ? `We couldn't find any studios in ${selectedLocation}. Try resetting filters.` 
+                        : "Try adjusting your filters or search terms."}
+                 </p>
+                 {selectedLocation !== 'all' && (
+                    <Button variant="link" onClick={() => {
+                        setSelectedLocation("all");
+                        updateFilters({ location: "all" });
+                    }}>
+                        View all locations
+                    </Button>
+                 )}
                </div>
             ) : (
               <>
@@ -219,16 +245,41 @@ export default function StudiosPage({ studios, locations = [] }: StudiosPageProp
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { search, style, location } = context.query;
+export const getServerSideProps: GetServerSideProps = async ({ req, query: params }) => {
+  const { search, style } = params;
+  let { location } = params;
+
+  // --- 1. AUTO-DETECT LOCATION (Vercel Headers) ---
+  // If the user hasn't explicitly picked a location (URL is empty), try to use their IP
+  let detectedCity: string | null = null;
   
-  // 1. Fetch locations safely
+  if (!location || location === 'all') {
+    // Vercel provides this header automatically
+    const cityHeader = req.headers['x-vercel-ip-city'];
+    
+    if (cityHeader) {
+        detectedCity = Array.isArray(cityHeader) ? cityHeader[0] : cityHeader;
+        // Use decodeURIComponent to handle special characters in city names
+        try {
+            detectedCity = decodeURIComponent(detectedCity);
+        } catch (e) {
+            // Fallback if decoding fails
+        }
+        
+        // Apply filter automatically
+        // Only apply if we didn't explicitly ask for 'all' (user cleared filter)
+        if (!location) {
+            location = detectedCity;
+        }
+    }
+  }
+
+  // 2. Fetch locations safely
   const { data: locationData } = await supabase
     .from("studios")
     .select("city, state")
     .eq("verified", true);
 
-  // 2. Process unique locations
   const uniqueLocations = locationData 
     ? Array.from(new Set(locationData.map(s => `${s.city}, ${s.state}`))).sort()
     : [];
@@ -247,20 +298,17 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     query = query.contains('styles', [style]);
   }
 
-  // --- FIX APPLIED HERE ---
-  // Handle comma-separated location properly (e.g. "Niš, Nišava District")
   if (location && location !== 'all') {
     const locString = location as string;
     
     if (locString.includes(',')) {
-      // If it has a comma, it likely came from our dropdown (City, State)
-      // Split and match exactly
+      // Matches dropdown format "City, State"
       const [city, state] = locString.split(',').map(s => s.trim());
       if (city) query = query.eq('city', city);
       if (state) query = query.eq('state', state);
     } else {
-      // Fallback for fuzzy search (e.g. user typed "New York" manually)
-      // We wrap values in quotes to prevent PGRST100 error if they contain special chars
+      // Matches City-only search (like auto-detected "Niš")
+      // Using fuzzy search to be safe
       query = query.or(`city.ilike."%${locString}%",state.ilike."%${locString}%"`);
     }
   }
@@ -269,7 +317,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   if (error) {
     console.error("Error fetching studios:", error);
-    return { props: { studios: [], locations: uniqueLocations } };
+    return { props: { studios: [], locations: uniqueLocations, initialLocation: location || 'all' } };
   }
 
   const studios: Studio[] = data.map((studio) => ({
@@ -289,7 +337,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   return {
     props: {
       studios,
-      locations: uniqueLocations, 
+      locations: uniqueLocations,
+      initialLocation: location || 'all', // Pass the resolved location to the client
     },
   };
 };

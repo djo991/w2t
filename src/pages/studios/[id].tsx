@@ -158,9 +158,10 @@ const handleMessage = async () => {
             </Card>
 
             <Tabs defaultValue="portfolio" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
                 <TabsTrigger value="artists">Artists</TabsTrigger>
+                <TabsTrigger value="pricing">Pricing</TabsTrigger>
                 <TabsTrigger value="reviews">Reviews</TabsTrigger>
               </TabsList>
 
@@ -222,6 +223,22 @@ const handleMessage = async () => {
                   </Card>
                 ))}
               </TabsContent>
+              <TabsContent value="pricing" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-xl font-bold mb-4">Pricing & Rates</h3>
+                {studio.pricingInfo ? (
+                  <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground leading-relaxed">
+                    {studio.pricingInfo}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground italic">
+                    No detailed pricing information provided. Please contact the studio directly.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
               <TabsContent value="reviews" className="mt-6 space-y-4">
                 {reviews.map((review) => (
@@ -354,6 +371,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const studio: Studio = {
     ...studioData,
     coverImage: studioData.cover_image, 
+    pricingInfo: studioData.pricing_info || null,
     openingHours: studioData.opening_hours || {},
     artists: artists,
     priceRange: {

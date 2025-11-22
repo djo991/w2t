@@ -17,6 +17,7 @@ export interface Studio {
   coverImage: string;
   featured?: boolean;
   verified?: boolean;
+  country: string;
   description: string;
   openingHours?: OpeningHours;
   latitude: number;

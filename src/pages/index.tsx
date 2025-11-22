@@ -17,11 +17,12 @@ import { Sparkles } from "lucide-react"; // Icon for the button
 
 interface HomePageProps {
   userCity: string | null;
+  userCountry: string | null;
   featuredStudios: Studio[];
 }
 
 // Add default value = [] to prevent crash
-export default function HomePage({ userCity, featuredStudios = [] }: HomePageProps) {
+export default function HomePage({ userCity, userCountry, featuredStudios = [] }: HomePageProps) {
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
@@ -297,6 +298,7 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
         open={isQuizOpen} 
         onOpenChange={setIsQuizOpen} 
         userCity={userCity} // Pass the auto-detected city!
+        userCountry={userCountry}
       />
     </div>
   );
@@ -304,13 +306,30 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
 
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   let userCity = null;
+  let userCountry = null;
   
-  // 1. Get City from Headers
+  // 1. Get Location from Headers
   const cityHeader = req.headers['x-vercel-ip-city'];
+  const countryHeader = req.headers['x-vercel-ip-country'];
+
   if (cityHeader) {
     try {
        userCity = decodeURIComponent(Array.isArray(cityHeader) ? cityHeader[0] : cityHeader);
     } catch(e) {}
+  }
+
+  if (countryHeader) {
+      const code = Array.isArray(countryHeader) ? countryHeader[0] : countryHeader;
+      // Simple Map for your MVP data (Vercel Code -> Your DB Name)
+      // In a real app, you'd use a library or store ISO codes in DB
+      const countryMap: Record<string, string> = {
+          'US': 'USA',
+          'RS': 'Serbia',
+          'PT': 'Portugal',
+          'GB': 'UK',
+          // Add others as needed
+      };
+      userCountry = countryMap[code] || code;
   }
 
   // 2. Fetch Featured Studios
@@ -361,6 +380,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   return {
     props: {
       userCity,
+      userCountry,
       featuredStudios: mappedStudios
     }
   };

@@ -48,6 +48,7 @@ export default function MyStudioPage() {
             ...data,
             coverImage: data.cover_image, // Map snake_case to camelCase
             pricingInfo: data.pricing_info,
+            country: data.country || "USA",
             pricingType: data.pricing_type || 'hourly',
             priceRange: { min: data.priceMin || 0, max: data.priceMax || 0 },
             priceMin: data.priceMin,
@@ -74,7 +75,10 @@ export default function MyStudioPage() {
       const updates = {
         name: studio.name,
         description: studio.description,
-        location: studio.location,
+        location: `${studio.city}, ${studio.state}, ${studio.country}`, // Keep legacy sync
+        city: studio.city,
+        state: studio.state,
+        country: studio.country,
         cover_image: studio.coverImage,
         pricing_info: studio.pricingInfo, 
         styles: studio.styles || [],

@@ -22,6 +22,9 @@ export default function CreateStudioPage() {
   const [formData, setFormData] = useState({
     name: "",
     location: "", // Simple string for now (City, State)
+    country: "", // New
+    state: "",   // New
+    city: "",    // New
     description: "",
   });
 
@@ -60,9 +63,12 @@ export default function CreateStudioPage() {
         owner_id: user.id,
         slug: slug,
         name: formData.name,
-        location: formData.location,
+        location: `${formData.city}, ${formData.state}, ${formData.country}`,
+        // Save individual fields
+        city: formData.city,
+        state: formData.state,
+        country: formData.country,
         address: formData.location,
-        city: formData.location.split(",")[0] || formData.location,
         description: formData.description,
         verified: false,
         "priceMin": 0, 
@@ -117,15 +123,37 @@ export default function CreateStudioPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="location">Location (City, State)</Label>
-                <Input 
-                  id="location" 
-                  required
-                  placeholder="e.g. Brooklyn, NY"
-                  value={formData.location}
-                  onChange={(e) => setFormData({...formData, location: e.target.value})}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input 
+                    id="country" 
+                    required
+                    placeholder="e.g. USA"
+                    value={formData.country}
+                    onChange={(e) => setFormData({...formData, country: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state">State / Province</Label>
+                  <Input 
+                    id="state" 
+                    required
+                    placeholder="e.g. NY"
+                    value={formData.state}
+                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input 
+                    id="city" 
+                    required
+                    placeholder="e.g. Brooklyn"
+                    value={formData.city}
+                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

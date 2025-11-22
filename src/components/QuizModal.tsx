@@ -32,9 +32,10 @@ interface QuizModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userCity?: string | null;
+  userCountry?: string | null;
 }
 
-export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
+export function QuizModal({ open, onOpenChange, userCity, userCountry }: QuizModalProps) {
   const [step, setStep] = useState<"intro" | "questions" | "calculating" | "results">("intro");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -109,19 +110,48 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
       .contains("styles", [winner]);
 
     if (userCity) {
-       const { data: localData } = await query.ilike("city", `%${userCity}%`).limit(3);
-       if (localData && localData.length > 0) {
-          // Cast to any here is acceptable if Studio types perfectly match but DB returns extra/missing fields
-          // Ideally we cast to unknown as Studio[]
-          setRecommendations(localData as unknown as Studio[]);
-          
+       const { data: cityData } = await supabase
+          .from("studios")
+          .select("*")
+          .eq("verified", true)
+          .contains("styles", [winner])
+          .ilike("city", `%${userCity}%`)
+          .limit(3);
+
+       if (cityData && cityData.length > 0) {
+          setRecommendations(cityData as any);
           setTimeout(() => setStep("results"), 1500);
-          return;
+          return; // Found match, stop here
        }
     }
 
-    const { data: globalData } = await query.order("rating", { ascending: false }).limit(3);
-    setRecommendations(globalData as unknown as Studio[] || []);
+    // 2. Try Country Level (Medium Priority) <--- NEW STEP
+    if (userCountry) {
+       const { data: countryData } = await supabase
+          .from("studios")
+          .select("*")
+          .eq("verified", true)
+          .contains("styles", [winner])
+          .ilike("country", userCountry) // Match country
+          .limit(3);
+
+       if (countryData && countryData.length > 0) {
+          setRecommendations(countryData as any);
+          setTimeout(() => setStep("results"), 1500);
+          return; // Found match, stop here
+       }
+    }
+
+    // 3. Global Fallback (Lowest Priority)
+    const { data: globalData } = await supabase
+        .from("studios")
+        .select("*")
+        .eq("verified", true)
+        .contains("styles", [winner])
+        .order("rating", { ascending: false })
+        .limit(3);
+        
+    setRecommendations(globalData as any || []);
     
     setTimeout(() => setStep("results"), 1500);
   };
@@ -210,7 +240,17 @@ export function QuizModal({ open, onOpenChange, userCity }: QuizModalProps) {
              <div className="p-8 space-y-8 bg-background">
                 <div className="flex items-center justify-between">
                     <h3 className="font-bold text-lg">Recommended Artists</h3>
-                    {userCity && <Badge variant="outline" className="text-xs"><MapPin className="w-3 h-3 mr-1" /> Near {userCity}</Badge>}
+                    {recommendations.length > 0 && (
+    <Badge variant="outline" className="text-xs">
+        <MapPin className="w-3 h-3 mr-1" /> 
+        {/* Smart Label: Check if the first result matches city or country */}
+        {recommendations[0].city.includes(userCity || '$$$') 
+            ? `Near ${userCity}` 
+            : recommendations[0].country === userCountry 
+                ? `In ${userCountry}` 
+                : "Top Rated Globally"}
+    </Badge>
+)}
                 </div>
 
                 <div className="grid gap-4">

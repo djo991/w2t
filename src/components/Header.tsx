@@ -121,7 +121,7 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/admin">
                     <Shield className="mr-2 h-4 w-4" />
-                    <span>Vetting Dashboard</span>
+                    <span>Admin Dashboard</span>
                   </Link>
                 </DropdownMenuItem>
               </>

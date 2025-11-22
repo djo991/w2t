@@ -17,32 +17,40 @@ import type { QuizQuestion, QuizAnswer } from "@/types";
 
 export default function QuizManager() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [availableStyles, setAvailableStyles] = useState<string[]>([]); // NEW STATE
   const [loading, setLoading] = useState(true);
   const [newQText, setNewQText] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchQuiz();
+    fetchData();
   }, []);
 
-  const fetchQuiz = async () => {
-    const { data, error } = await supabase
+  const fetchData = async () => {
+    // 1. Fetch Quiz Questions
+    const { data: qData, error: qError } = await supabase
       .from("quiz_questions")
-      .select(`
-        *,
-        quiz_answers (
-          *,
-          quiz_weights (*)
-        )
-      `)
+      .select(`*, quiz_answers (*, quiz_weights (*))`)
       .order("step_order", { ascending: true });
 
-    if (error) {
-        console.error("Error fetching quiz:", error);
+    if (qError) {
+        console.error("Error fetching quiz:", qError);
         toast({ title: "Error loading quiz", variant: "destructive" });
     } else {
-        setQuestions(data as any);
+        setQuestions(qData as any);
     }
+
+    // 2. Fetch Styles (NEW)
+    const { data: sData } = await supabase
+        .from("tattoo_styles")
+        .select("name")
+        .order("name");
+    
+    if (sData) {
+        // We use the Style Name as the tag (e.g. "Traditional")
+        setAvailableStyles(sData.map(s => s.name));
+    }
+
     setLoading(false);
   };
 
@@ -50,7 +58,6 @@ export default function QuizManager() {
     if (!newQText) return;
     const order = questions.length + 1;
     
-    // Optimistic UI
     const tempId = `temp-${Date.now()}`;
     setQuestions(prev => [...prev, { id: tempId, question_text: newQText, step_order: order, is_active: true, quiz_answers: [] }]);
     setNewQText("");
@@ -62,10 +69,8 @@ export default function QuizManager() {
       .single();
 
     if (error) {
-        console.error("Error adding question:", error);
-        fetchQuiz(); // Revert on error
+        fetchData(); 
     } else {
-        // Replace temp with real
         setQuestions(prev => prev.map(q => q.id === tempId ? (data as any) : q));
         toast({ title: "Question Added" });
     }
@@ -87,7 +92,7 @@ export default function QuizManager() {
               <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
             </Link>
             <Link href="/admin/styles">
-                <Button variant="outline">Manage Result Images</Button>
+                <Button variant="outline">Manage Styles & Images</Button>
             </Link>
           </div>
 
@@ -122,6 +127,7 @@ export default function QuizManager() {
                         key={q.id} 
                         question={q} 
                         index={index} 
+                        availableStyles={availableStyles} // PASSING STYLES DOWN
                         onDelete={() => handleDeleteQuestion(q.id)} 
                     />
                 ))
@@ -134,21 +140,26 @@ export default function QuizManager() {
 }
 
 // --- SUB-COMPONENT: Single Question Editor ---
-function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion, index: number, onDelete: () => void }) {
-  // Local state for answers to prevent full page re-renders
+function QuestionEditor({ question, index, onDelete, availableStyles }: { question: QuizQuestion, index: number, onDelete: () => void, availableStyles: string[] }) {
   const [answers, setAnswers] = useState<QuizAnswer[]>(question.quiz_answers || []);
   const { toast } = useToast();
 
   // Form State
   const [draftText, setDraftText] = useState("");
   const [draftWeights, setDraftWeights] = useState<{style: string, val: number}[]>([]);
-  const [currentStyle, setCurrentStyle] = useState("Traditional");
+  const [currentStyle, setCurrentStyle] = useState(""); // Empty by default
   const [currentVal, setCurrentVal] = useState("2");
   const [isSaving, setIsSaving] = useState(false);
 
-  const styles = ["Traditional", "Realism", "Geometric", "Japanese", "Watercolor", "Fine Line", "Blackwork"];
+  // Set default style when options load
+  useEffect(() => {
+      if (availableStyles.length > 0 && !currentStyle) {
+          setCurrentStyle(availableStyles[0]);
+      }
+  }, [availableStyles]);
 
   const addWeightToDraft = () => {
+    if (!currentStyle) return;
     setDraftWeights(prev => [...prev, { style: currentStyle, val: parseInt(currentVal) }]);
   };
 
@@ -169,7 +180,6 @@ function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion,
     setIsSaving(true);
 
     try {
-        // 1. Insert Answer
         const { data: ansData, error: ansError } = await supabase
         .from("quiz_answers")
         .insert({ question_id: question.id, answer_text: draftText })
@@ -178,7 +188,6 @@ function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion,
 
         if (ansError) throw ansError;
 
-        // 2. Insert Weights
         const weightsPayload = draftWeights.map(w => ({
             answer_id: ansData.id,
             style_tag: w.style,
@@ -192,7 +201,6 @@ function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion,
 
         if (wError) throw wError;
 
-        // 3. Update Local State
         const newAnswer: QuizAnswer = {
             ...ansData,
             quiz_weights: wData as any
@@ -200,7 +208,6 @@ function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion,
         
         setAnswers(prev => [...prev, newAnswer]);
         
-        // 4. Reset Form
         setDraftText("");
         setDraftWeights([]);
         toast({ title: "Answer Saved" });
@@ -253,21 +260,22 @@ function QuestionEditor({ question, index, onDelete }: { question: QuizQuestion,
             <div className="space-y-1">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add Answer</Label>
                 <Input 
-                    placeholder="Answer text (e.g. 'I prefer chaotic designs')" 
+                    placeholder="Answer text..." 
                     value={draftText}
                     onChange={(e) => setDraftText(e.target.value)}
                     className="bg-background"
                 />
             </div>
 
-            {/* Weight Builder */}
+            {/* Dynamic Weight Builder */}
             <div className="flex gap-2 items-end bg-background p-2 rounded border">
                 <div className="w-40 space-y-1">
-                    <Label className="text-xs">Style Favored</Label>
+                    <Label className="text-xs">Style</Label>
+                    {/* USE DYNAMIC STYLES HERE */}
                     <Select value={currentStyle} onValueChange={setCurrentStyle}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select..."/></SelectTrigger>
                         <SelectContent>
-                        {styles.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {availableStyles.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </div>

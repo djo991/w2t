@@ -103,7 +103,7 @@ export default function AdminDashboard() {
           ) : (
             <div className="grid gap-6">
               {pendingStudios.map((studio) => (
-                <Card key={studio.id} className="overflow-hidden">
+                <Card key={studio.slug} className="overflow-hidden">
                   <div className="flex flex-col md:flex-row">
                     {/* Preview Image */}
                     <div className="w-full md:w-64 h-48 bg-muted relative">
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
                         <div>
                           <h3 className="text-xl font-bold flex items-center gap-2">
                             {studio.name}
-                            <Link href={`/studios/${studio.id}`} target="_blank">
+                            <Link href={`/studios/${studio.slug}`} target="_blank">
                                 <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-pointer" />
                             </Link>
                           </h3>
@@ -147,14 +147,14 @@ export default function AdminDashboard() {
                       <div className="flex gap-3 border-t pt-4">
                         <Button 
                             className="bg-green-600 hover:bg-green-700 text-white" 
-                            onClick={() => handleApprove(studio.id)}
+                            onClick={() => handleApprove(studio.slug)}
                         >
                             <Check className="w-4 h-4 mr-2" />
                             Approve Studio
                         </Button>
                         <Button 
                             variant="destructive" 
-                            onClick={() => handleReject(studio.id)}
+                            onClick={() => handleReject(studio.slug)}
                         >
                             <X className="w-4 h-4 mr-2" />
                             Reject & Delete

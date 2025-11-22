@@ -11,7 +11,7 @@ interface StudioCardProps {
 
 export function StudioCard({ studio }: StudioCardProps) {
   return (
-    <Link href={`/studios/${studio.id}`}>
+    <Link href={`/studios/${studio.slug}`}>
       <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 group">
         <div className="aspect-[4/3] overflow-hidden relative">
           <img
@@ -66,8 +66,11 @@ export function StudioCard({ studio }: StudioCardProps) {
           </div>
 
           <div className="text-sm text-muted-foreground">
-            Starting from <span className="font-semibold text-foreground">${studio.priceRange.min}</span>
-          </div>
+    {studio.pricingType === 'hourly' ? 'Hourly rate' : studio.pricingType === 'session' ? 'Session rate' : 'Price'}
+    <span className="font-semibold text-foreground ml-1">
+        ${studio.priceRange.min}{studio.pricingType === 'hourly' ? '/hr' : ''}+
+    </span>
+</div>
         </CardContent>
       </Card>
     </Link>

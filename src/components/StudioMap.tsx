@@ -48,7 +48,7 @@ export default function StudioMap({ studios }: StudioMapProps) {
         
         return (
           <Marker 
-            key={studio.id} 
+            key={studio.slug} 
             position={[studio.latitude, studio.longitude]}
             icon={icon}
           >
@@ -61,7 +61,7 @@ export default function StudioMap({ studios }: StudioMapProps) {
                     <h3 className="font-bold text-sm">{studio.name}</h3>
                     <p className="text-xs text-muted-foreground">{studio.location}</p>
                 </div>
-                <Link href={`/studios/${studio.id}`} className="w-full">
+                <Link href={`/studios/${studio.slug}`} className="w-full">
                     <Button size="sm" className="w-full h-8 text-xs">View Studio</Button>
                 </Link>
               </div>

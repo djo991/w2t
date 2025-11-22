@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Image as ImageIcon, Save, ArrowLeft } from "lucide-react"; // <--- Added ArrowLeft
+import { X, Image as ImageIcon, Save, ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,7 +14,8 @@ import StudioRoute from "@/components/StudioRoute";
 import { Header } from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/router";
-import Link from "next/link"; // <--- Added Link
+import Link from "next/link";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Studio } from "@/types";
 import { ImageUpload } from "@/components/ImageUpload";
 
@@ -47,6 +48,10 @@ export default function MyStudioPage() {
             ...data,
             coverImage: data.cover_image, // Map snake_case to camelCase
             pricingInfo: data.pricing_info,
+            pricingType: data.pricing_type || 'hourly',
+            priceRange: { min: data.priceMin || 0, max: data.priceMax || 0 },
+            priceMin: data.priceMin,
+    priceMax: data.priceMax,
             styles: data.styles || [],
             images: data.images || [],
         });
@@ -76,6 +81,9 @@ export default function MyStudioPage() {
         images: studio.images || [],
         phone: studio.phone,
         email: studio.email,
+    pricing_type: studio.pricingType,
+    "priceMin": studio.priceMin,
+    "priceMax": studio.priceMax,
       };
 
       const { error } = await supabase
@@ -145,7 +153,7 @@ export default function MyStudioPage() {
               <p className="text-muted-foreground">Manage your public profile, assets, and content.</p>
             </div>
             <div className="flex gap-3">
-                <Button variant="outline" onClick={() => router.push(`/studios/${studio.id}`)}>
+                <Button variant="outline" onClick={() => router.push(`/studios/${studio.slug}`)}>
                     View Public Page
                 </Button>
                 <Button onClick={handleSave} disabled={isSaving}>
@@ -212,24 +220,60 @@ export default function MyStudioPage() {
               </CardContent>
             </Card>
             {/* Pricing Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pricing Information</CardTitle>
-            <CardDescription>Explain your rates, deposits, and minimums.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-                <Label>Detailed Pricing</Label>
-                <Textarea 
-                    rows={6}
-                    placeholder="e.g. Our hourly rate is $150. Minimum shop charge is $100. We require a non-refundable deposit of $50 for all appointments..."
-                    value={studio.pricingInfo || "No additional pricing info available."} 
-                    onChange={e => setStudio(prev => ({ ...prev, pricingInfo: e.target.value }))} 
-                />
-                <p className="text-xs text-muted-foreground">This text will be displayed on your public profile exactly as written here.</p>
-            </div>
-          </CardContent>
-        </Card>      
+        {/* Pricing Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pricing Information</CardTitle>
+                <CardDescription>Set your pricing model and range.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                
+                <div className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <Label>Pricing Model</Label>
+                        <Select 
+                            value={studio.pricingType || "hourly"} 
+                            onValueChange={(val) => setStudio(prev => ({ ...prev, pricingType: val as any }))}
+                        >
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hourly">Hourly Rate</SelectItem>
+                                <SelectItem value="session">Per Session</SelectItem>
+                                <SelectItem value="piece">Per Piece (Estimate)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Min Price ($)</Label>
+                        <Input 
+                            type="number" 
+                            value={studio.priceMin || 0} 
+                            onChange={e => setStudio(prev => ({ ...prev, priceMin: parseInt(e.target.value) || 0 }))} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Max Price ($)</Label>
+                        <Input 
+                            type="number" 
+                            value={studio.priceMax || 0} 
+                            onChange={e => setStudio(prev => ({ ...prev, priceMax: parseInt(e.target.value) || 0 }))} 
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Detailed Pricing Info</Label>
+                    <Textarea 
+                        rows={4}
+                        placeholder="Explain deposits, cancellation fees, and minimums..."
+                        value={studio.pricingInfo || ""} 
+                        onChange={e => setStudio(prev => ({ ...prev, pricingInfo: e.target.value }))} 
+                    />
+                </div>
+              </CardContent>
+            </Card>   
             {/* Branding & Styles */}
             <Card>
               <CardHeader>

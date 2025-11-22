@@ -1,6 +1,7 @@
 
 export interface Studio {
   id: string;
+  slug: string;
   name: string;
   location: string;
   email: string;
@@ -24,6 +25,9 @@ export interface Studio {
     min: number;
     max: number;
   };
+  pricingType: 'hourly' | 'session' | 'piece';
+  priceMin: number;
+  priceMax: number;
   responseTime?: string;
   availability: string[];
   artists: Artist[];

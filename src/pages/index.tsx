@@ -150,7 +150,7 @@ export default function HomePage({ userCity, featuredStudios = [] }: HomePagePro
                 </div>
             ) : (
                 featuredStudios.map((studio) => (
-                    <Link href={`/studios/${studio.id}`} key={studio.id}>
+                    <Link href={`/studios/${studio.slug}`} key={studio.slug}>
                     <Card className="overflow-hidden card-hover cursor-pointer group h-full">
                         <div className="relative h-64 overflow-hidden">
                         <img 

@@ -360,6 +360,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req, query: param
     images: studio.images || [],
     longitude: studio.longitude,
     latitude: studio.latitude,
+    pricingType: studio.pricing_type || 'hourly',
     availability: studio.availability || [],
   }));
 

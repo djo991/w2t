@@ -1,4 +1,4 @@
-// src/pages/studios/[id].tsx
+// src/pages/studios/[slug].tsx
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,19 +27,19 @@ interface StudioDetailPageProps {
 
 export default function StudioDetailPage({ studio, artists, reviews, portfolioItems }: StudioDetailPageProps) {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-
   const router = useRouter();
-const { user } = useAuth();
-const [isContactOpen, setIsContactOpen] = useState(false);
+  const { user } = useAuth();
+  const [isContactOpen, setIsContactOpen] = useState(false);
 
-const handleMessage = async () => {
+  const handleMessage = async () => {
     if (!user) {
       setIsContactOpen(true);
-    return;
+      return;
     }
 
     try {
-      // 1. Check if conversation exists (using maybeSingle to avoid errors)
+      // 1. Check if conversation exists
+      // Note: We still use studio.id here (fetched from DB via slug), which is correct for relations
       const { data: existing } = await supabase
         .from("conversations")
         .select("id")
@@ -48,19 +48,17 @@ const handleMessage = async () => {
         .maybeSingle();
 
       if (existing) {
-        // FOUND: Redirect with the existing ID
         router.push(`/messages?chat=${existing.id}`);
       } else {
-        // NOT FOUND: Create new conversation AND select the ID back
+        // 2. Create new conversation
         const { data: newChat, error: insertError } = await supabase
           .from("conversations")
           .insert({ customer_id: user.id, studio_id: studio.id })
-          .select("id") // <--- Crucial: Return the ID of the new row
+          .select("id")
           .single();
 
         if (insertError) throw insertError;
         
-        // Redirect with the NEW ID
         if (newChat) {
            router.push(`/messages?chat=${newChat.id}`);
         }
@@ -70,7 +68,6 @@ const handleMessage = async () => {
     }
   };
 
-  // 1. Convert studio images (strings) into PortfolioItem objects
   const studioPortfolioItems: PortfolioItem[] = (studio.images || []).map((img, idx) => ({
     id: `studio-${idx}`,
     image: img,
@@ -79,12 +76,10 @@ const handleMessage = async () => {
     artistId: "studio"
   }));
 
-  // 2. Combine them with the artist portfolio items passed from props
-  // We put studio items first
   const allPortfolioItems = [...studioPortfolioItems, ...portfolioItems];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       <Header />
       <BookingModal 
         open={isBookingOpen} 
@@ -139,7 +134,10 @@ const handleMessage = async () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-muted-foreground" />
-                    <span className="font-medium">${studio.priceRange.min} - ${studio.priceRange.max}/hr</span>
+                    <span className="font-medium">
+                      ${studio.priceRange.min} - ${studio.priceRange.max} 
+                      {studio.pricingType === 'hourly' ? '/hr' : studio.pricingType === 'session' ? '/session' : ''}
+                    </span>
                   </div>
                 </div>
 
@@ -159,11 +157,11 @@ const handleMessage = async () => {
 
             <Tabs defaultValue="portfolio" className="w-full">
               <TabsList className="grid w-full grid-cols-4">
-  <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-  <TabsTrigger value="artists">Artists</TabsTrigger>
-  <TabsTrigger value="pricing">Pricing</TabsTrigger>
-  <TabsTrigger value="reviews">Reviews</TabsTrigger>
-</TabsList>
+                <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+                <TabsTrigger value="artists">Artists</TabsTrigger>
+                <TabsTrigger value="pricing">Pricing</TabsTrigger>
+                <TabsTrigger value="reviews">Reviews</TabsTrigger>
+              </TabsList>
 
               <TabsContent value="portfolio" className="mt-6">
                 {allPortfolioItems.length === 0 ? (
@@ -223,22 +221,23 @@ const handleMessage = async () => {
                   </Card>
                 ))}
               </TabsContent>
+
               <TabsContent value="pricing" className="mt-6">
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold mb-4">Pricing & Rates</h3>
-                {studio.pricingInfo ? (
-                  <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground leading-relaxed">
-                    {studio.pricingInfo}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground italic">
-                    No detailed pricing information provided. Please contact the studio directly.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-xl font-bold mb-4">Pricing & Rates</h3>
+                    {studio.pricingInfo ? (
+                      <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap text-muted-foreground leading-relaxed">
+                        {studio.pricingInfo}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground italic">
+                        No detailed pricing information provided. Please contact the studio directly.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
               <TabsContent value="reviews" className="mt-6 space-y-4">
                 {reviews.map((review) => (
@@ -293,17 +292,17 @@ const handleMessage = async () => {
                 </Button>
 
                 <div className="space-y-2">
-                <Button variant="outline" className="w-full" onClick={handleMessage}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  {user ? "Message Studio" : "Contact Studio"}
-                </Button>
-
-                {!user && (
-                    <p className="text-xs text-center text-muted-foreground">
-                        <Link href="/auth/signin" className="text-[hsl(var(--ink-red))] hover:underline">Log in</Link> to chat directly with the studio.
-                    </p>
-                )}
-            </div>
+                    <Button variant="outline" className="w-full" onClick={handleMessage}>
+                      <Mail className="w-4 h-4 mr-2" />
+                      {user ? "Message Studio" : "Contact Studio"}
+                    </Button>
+                    
+                    {!user && (
+                        <p className="text-xs text-center text-muted-foreground">
+                            <Link href="/auth/signin" className="text-[hsl(var(--ink-red))] hover:underline">Log in</Link> to chat directly with the studio.
+                        </p>
+                    )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -313,15 +312,15 @@ const handleMessage = async () => {
   );
 }
 
-// Update getServerSideProps to map cover_image correctly
+// --- KEY CHANGE HERE: Query by Slug instead of ID ---
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { id } = context.params;
+  const { slug } = context.params || {}; // Use slug
 
-  if (!id || Array.isArray(id)) {
+  if (!slug || Array.isArray(slug)) {
     return { notFound: true };
   }
 
-  // 1. FETCH DATA WITH JOINS
+  // Fetch by SLUG
   const { data: studioData, error } = await supabase
     .from("studios")
     .select(`
@@ -338,7 +337,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         )
       )
     `)
-    .eq("id", id)
+    .eq("slug", slug) // <--- Changed from 'id' to 'slug'
     .single();
 
   if (error || !studioData) {
@@ -346,7 +345,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { notFound: true };
   }
   
-  // 2. MAP ARTISTS
+  // The rest of your mapping logic remains identical
   const artists: Artist[] = studioData.artists.map((artist: any) => ({
     ...artist,
     specialties: artist.specialties || [],
@@ -354,14 +353,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     yearsExperience: artist.years_experience
   }));
   
-  // 3. MAP REVIEWS (FIXED)
-  // We extract the name from the joined 'profiles' table
   const reviews: Review[] = (studioData.reviews || []).map((review: any) => ({
     ...review,
-    // Ensure we have a string for the name, even if profile is missing
     userName: review.profiles?.full_name || "Anonymous User",
     userAvatar: review.profiles?.avatar_url || null,
-    // Map other fields just in case your type expects them
     author: review.profiles?.full_name || "Anonymous User",
     date: review.created_at,
   }));
@@ -370,10 +365,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   const studio: Studio = {
     ...studioData,
+    // Include id and slug explicitly
+    id: studioData.id,
+    slug: studioData.slug,
     coverImage: studioData.cover_image, 
     pricingInfo: studioData.pricing_info || null,
     openingHours: studioData.opening_hours || {},
     artists: artists,
+    pricingType: studioData.pricing_type || 'hourly',
     priceRange: {
       min: studioData.priceMin || 0,
       max: studioData.priceMax || 0,

@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/Header";
+import { generateSlug } from "@/lib/utils";
 
 export default function CreateStudioPage() {
   const { user, profile, isLoading } = useAuth();
@@ -53,8 +54,11 @@ export default function CreateStudioPage() {
     setIsSubmitting(true);
 
     try {
+      const slug = generateSlug(formData.name, formData.location.split(',')[0]);
+
       const { error } = await supabase.from("studios").insert({
         owner_id: user.id,
+        slug: slug,
         name: formData.name,
         location: formData.location,
         address: formData.location,
